@@ -1,0 +1,3243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RoPA Whisperer</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #f0ede8;
+    --left-bg:     #1a1a2e;
+    --right-bg:    #faf9f6;
+    --accent:      #c8a96e;
+    --accent-dim:  #a08550;
+    --text-dark:   #1a1a2e;
+    --text-mid:    #4a4a5e;
+    --text-light:  #9090a0;
+    --divider:     #e0ddd6;
+    --bubble-ai:   #252540;
+    --bubble-user: #ffffff;
+    --red:         #c0392b;
+    --amber:       #b7770d;
+    --green:       #1e7e4e;
+    --red-bg:      #fdf1f0;
+    --amber-bg:    #fdf8ed;
+    --green-bg:    #f0faf5;
+    --blue:        #2563a8;
+    --blue-bg:     #f0f5fd;
+    --shadow:      0 4px 24px rgba(26,26,46,0.10);
+    --radius:      12px;
+    --font-serif:  'Playfair Display', Georgia, serif;
+    --font-sans:   'DM Sans', system-ui, sans-serif;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text-dark);
+    overflow: hidden;
+  }
+
+  /* ── Layout ── */
+  .app {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ── LEFT PANEL ── */
+  .panel-left {
+    width: 50%;
+    background: var(--left-bg);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel-left::before {
+    content: '';
+    position: absolute;
+    top: -120px; right: -120px;
+    width: 340px; height: 340px;
+    background: radial-gradient(circle, rgba(200,169,110,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .left-header {
+    padding: 28px 32px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+  }
+
+  .left-header h1 {
+    font-family: var(--font-serif);
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  .left-header h1 span {
+    color: var(--accent);
+  }
+
+  .left-header p {
+    margin-top: 5px;
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.38);
+    font-weight: 300;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* Chat messages area */
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scroll-behavior: smooth;
+  }
+
+  .chat-messages::-webkit-scrollbar { width: 4px; }
+  .chat-messages::-webkit-scrollbar-track { background: transparent; }
+  .chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    max-width: 82%;
+    animation: msgIn 0.3s ease both;
+  }
+
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.ai  { align-self: flex-start; }
+  .msg.user { align-self: flex-end; }
+
+  .msg-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    font-weight: 500;
+  }
+  .msg.ai  .msg-label { color: var(--accent); padding-left: 2px; }
+  .msg.user .msg-label { color: rgba(255,255,255,0.3); text-align: right; padding-right: 2px; }
+
+  .msg-bubble {
+    padding: 13px 17px;
+    border-radius: 16px;
+    font-size: 0.88rem;
+    line-height: 1.65;
+    font-weight: 400;
+  }
+  .msg.ai  .msg-bubble {
+    background: var(--bubble-ai);
+    color: rgba(255,255,255,0.88);
+    border-bottom-left-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .msg.user .msg-bubble {
+    background: var(--bubble-user);
+    color: var(--text-dark);
+    border-bottom-right-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  /* Typing indicator */
+  .typing-indicator {
+    display: none;
+    align-self: flex-start;
+  }
+  .typing-indicator.visible { display: flex; align-items: center; gap: 10px; }
+
+  .typing-dots {
+    background: var(--bubble-ai);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    border-bottom-left-radius: 4px;
+    padding: 13px 18px;
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+  .typing-dots span {
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: inline-block;
+    animation: dot-bounce 1.2s infinite;
+    opacity: 0.7;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dot-bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40% { transform: translateY(-5px); opacity: 1; }
+  }
+
+  /* Input area */
+  .chat-input-area {
+    padding: 18px 28px 24px;
+    flex-shrink: 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .chat-input-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .chat-input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 11px 16px;
+    color: #ffffff;
+    font-family: var(--font-sans);
+    font-size: 0.88rem;
+    resize: none;
+    min-height: 44px;
+    max-height: 120px;
+    line-height: 1.5;
+    transition: border-color 0.2s;
+    outline: none;
+  }
+  .chat-input::placeholder { color: rgba(255,255,255,0.25); }
+  .chat-input:focus { border-color: rgba(200,169,110,0.45); }
+
+  .send-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    width: 44px;
+    height: 44px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .send-btn:hover { background: #d4b87a; }
+  .send-btn:active { transform: scale(0.95); }
+  .send-btn:disabled { background: rgba(200,169,110,0.3); cursor: not-allowed; }
+  .send-btn svg { fill: var(--left-bg); }
+
+  /* ── RIGHT PANEL ── */
+  .panel-right {
+    width: 50%;
+    background: var(--right-bg);
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--divider);
+    overflow: hidden;
+  }
+
+  .right-header {
+    padding: 22px 32px 18px;
+    border-bottom: 1px solid var(--divider);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .right-header-text h2 {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    letter-spacing: -0.01em;
+  }
+
+  .right-header-text p {
+    font-size: 0.72rem;
+    color: var(--text-light);
+    margin-top: 3px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .new-btn {
+    background: transparent;
+    border: 1.5px solid var(--divider);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-family: var(--font-sans);
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: var(--text-mid);
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+  .new-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* RoPA form */
+  .ropa-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 28px;
+  }
+  .ropa-scroll::-webkit-scrollbar { width: 4px; }
+  .ropa-scroll::-webkit-scrollbar-track { background: transparent; }
+  .ropa-scroll::-webkit-scrollbar-thumb { background: var(--divider); border-radius: 4px; }
+
+  .ropa-field {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--divider);
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    transition: background 0.3s;
+  }
+  .ropa-field:last-of-type { border-bottom: none; }
+
+  .ropa-field.just-updated {
+    animation: fieldPulse 0.8s ease;
+  }
+  @keyframes fieldPulse {
+    0%   { background: rgba(200,169,110,0.08); }
+    100% { background: transparent; }
+  }
+
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 5px;
+    transition: background 0.4s, box-shadow 0.4s;
+  }
+  .status-dot.empty   { background: #e0ddd6; }
+  .status-dot.partial { background: var(--amber); box-shadow: 0 0 0 3px rgba(183,119,13,0.15); }
+  .status-dot.complete{ background: var(--green); box-shadow: 0 0 0 3px rgba(30,126,78,0.15); }
+
+  .ropa-field-content { flex: 1; }
+
+  .ropa-field-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-light);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .ropa-field-value {
+    font-size: 0.86rem;
+    color: var(--text-mid);
+    line-height: 1.5;
+    font-style: italic;
+    transition: color 0.3s;
+  }
+  .ropa-field-value.filled {
+    color: var(--text-dark);
+    font-style: normal;
+    font-weight: 400;
+  }
+
+  /* Special category badge */
+  .art9-badge {
+    display: inline-block;
+    background: #fdf1f0;
+    color: var(--red);
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid rgba(192,57,43,0.2);
+    margin-top: 3px;
+    letter-spacing: 0.03em;
+  }
+
+  /* Risk flags section */
+  .risk-section {
+    margin-top: 4px;
+    padding: 0 28px 20px;
+    flex-shrink: 0;
+  }
+
+  .risk-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 10px 0 8px;
+    border-top: 1px solid var(--divider);
+    user-select: none;
+  }
+  .risk-toggle-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-mid);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    flex: 1;
+  }
+  .risk-count {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--red-bg);
+    color: var(--red);
+    display: none;
+  }
+  .risk-count.visible { display: inline-block; }
+
+  .risk-chevron {
+    font-size: 0.7rem;
+    color: var(--text-light);
+    transition: transform 0.2s;
+  }
+  .risk-chevron.open { transform: rotate(180deg); }
+
+  .risk-flags-list {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 4px;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .risk-flags-list.open { display: flex; }
+  .risk-flags-list::-webkit-scrollbar { width: 3px; }
+  .risk-flags-list::-webkit-scrollbar-thumb { background: var(--divider); }
+
+  .risk-card {
+    border-radius: 8px;
+    padding: 11px 14px;
+    border-left: 3px solid transparent;
+    font-size: 0.8rem;
+    animation: flagIn 0.35s ease both;
+  }
+  @keyframes flagIn {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .risk-card.HIGH   { background: var(--red-bg);   border-left-color: var(--red);   }
+  .risk-card.MEDIUM { background: var(--amber-bg); border-left-color: var(--amber); }
+  .risk-card.LOW    { background: var(--blue-bg);  border-left-color: var(--blue);  }
+
+  .risk-card-title {
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1.3;
+  }
+  .risk-sev {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 1px 6px;
+    border-radius: 10px;
+  }
+  .HIGH  .risk-sev { background: rgba(192,57,43,0.12); color: var(--red); }
+  .MEDIUM .risk-sev { background: rgba(183,119,13,0.12); color: var(--amber); }
+  .LOW   .risk-sev { background: rgba(37,99,168,0.12); color: var(--blue); }
+
+  .risk-card-desc { color: var(--text-mid); line-height: 1.5; margin-bottom: 4px; }
+  .risk-card-ref  { font-size: 0.72rem; color: var(--text-light); }
+  .risk-card-action {
+    font-size: 0.74rem;
+    color: var(--text-mid);
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(0,0,0,0.05);
+    font-style: italic;
+  }
+
+  /* Generate report button */
+  .report-btn-area {
+    padding: 14px 28px 20px;
+    border-top: 1px solid var(--divider);
+    flex-shrink: 0;
+  }
+
+  .report-btn {
+    width: 100%;
+    background: var(--left-bg);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 13px;
+    font-family: var(--font-sans);
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .report-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(200,169,110,0.15) 50%, transparent 100%);
+    transform: translateX(-100%);
+    transition: transform 0.4s ease;
+  }
+  .report-btn:hover:not(:disabled)::after { transform: translateX(100%); }
+  .report-btn:hover:not(:disabled) { background: #252540; }
+  .report-btn:disabled {
+    background: #ccc;
+    color: #888;
+    cursor: not-allowed;
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(26,26,46,0.75);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+  }
+  .modal-overlay.visible { display: flex; }
+
+  .modal {
+    background: #fff;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 740px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 24px 80px rgba(26,26,46,0.3);
+  }
+
+  .modal-header {
+    padding: 22px 28px 18px;
+    border-bottom: 1px solid var(--divider);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .modal-header h3 {
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    color: var(--text-dark);
+  }
+  .modal-close {
+    background: none; border: none; cursor: pointer;
+    font-size: 1.3rem; color: var(--text-light); line-height: 1;
+    padding: 4px;
+  }
+  .modal-close:hover { color: var(--text-dark); }
+
+  .modal-body {
+    padding: 0;
+    overflow-y: auto;
+    flex: 1;
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+    white-space: normal;
+    font-family: var(--font-sans);
+  }
+  .modal-body::-webkit-scrollbar { width: 4px; }
+  .modal-body::-webkit-scrollbar-thumb { background: var(--divider); }
+
+  /* ── Report cover ── */
+  .report-cover {
+    background: var(--left-bg);
+    padding: 28px 32px 24px;
+    border-bottom: 3px solid var(--accent);
+  }
+  .report-cover-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(200,169,110,0.7);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .report-cover-title {
+    font-family: var(--font-serif);
+    font-size: 1.35rem;
+    color: #ffffff;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-bottom: 10px;
+  }
+  .report-cover-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.4);
+    flex-wrap: wrap;
+  }
+  .cover-dot { color: rgba(255,255,255,0.2); }
+
+  /* ── Report sections ── */
+  .report-section {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--divider);
+  }
+  .report-section:last-child { border-bottom: none; }
+
+  .report-section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .section-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: var(--text-dark);
+    color: var(--accent);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+    font-family: var(--font-serif);
+  }
+  .report-section-header > .section-num + * {
+    font-family: var(--font-serif);
+    font-size: 1.0rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    flex: 1;
+  }
+  /* Inline text after section-num and title */
+  .report-section-header {
+    font-family: var(--font-serif);
+    font-size: 1.0rem;
+    font-weight: 600;
+    color: var(--text-dark);
+  }
+
+  .count-badges {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+  }
+  .count-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .count-badge.high   { background: var(--red-bg);   color: var(--red);   }
+  .count-badge.medium { background: var(--amber-bg); color: var(--amber); }
+  .count-badge.low    { background: var(--blue-bg);  color: var(--blue);  }
+
+  /* ── Risk summary table inside modal ── */
+  .risk-summary-table-wrap {
+    overflow-x: auto;
+  }
+  .risk-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    font-family: var(--font-sans);
+  }
+  .risk-table thead tr {
+    background: var(--text-dark);
+    color: #fff;
+  }
+  .risk-table thead th {
+    padding: 8px 11px;
+    text-align: left;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .risk-table tbody tr {
+    border-bottom: 1px solid var(--divider);
+    transition: background 0.15s;
+  }
+  .risk-table tbody tr:hover { background: #f7f6f3; }
+  .risk-table tbody tr:last-child { border-bottom: none; }
+  .risk-table td {
+    padding: 8px 11px;
+    vertical-align: top;
+    line-height: 1.5;
+    color: var(--text-mid);
+  }
+  .tbl-num  { color: var(--text-light); font-size: 0.72rem; text-align:center; width: 28px; }
+  .tbl-title { color: var(--text-dark); font-weight: 600; min-width: 120px; }
+  .tbl-ref  { white-space: nowrap; font-size: 0.72rem; color: var(--text-mid); }
+  .tbl-summary { font-style: italic; color: var(--text-mid); min-width: 140px; font-size: 0.76rem; }
+
+  .risk-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .risk-badge.HIGH   { background: var(--red-bg);   color: var(--red);   border: 1px solid rgba(192,57,43,0.2); }
+  .risk-badge.MEDIUM { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(183,119,13,0.2); }
+  .risk-badge.LOW    { background: var(--blue-bg);  color: var(--blue);  border: 1px solid rgba(37,99,168,0.2); }
+
+  /* ── Prose sections (II, III, IV) ── */
+  .report-prose {
+    font-size: 0.84rem;
+    line-height: 1.75;
+    color: var(--text-mid);
+  }
+  .report-prose-block {
+    white-space: pre-wrap;
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    line-height: 1.8;
+    color: var(--text-mid);
+    background: #faf9f6;
+    border: 1px solid var(--divider);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+
+  .risk-table-divider {
+    border: none;
+    border-top: 1px solid var(--divider);
+    margin: 0;
+  }
+  .modal-report-text {
+    white-space: pre-wrap;
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    line-height: 1.8;
+    color: var(--text-mid);
+  }
+
+
+  .modal-footer {
+    padding: 16px 28px;
+    border-top: 1px solid var(--divider);
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .modal-footer button {
+    padding: 9px 20px;
+    border-radius: 8px;
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+  .btn-download-pdf {
+    background: var(--left-bg);
+    color: #fff;
+    border: none;
+  }
+  .btn-download-pdf:hover { background: #252540; }
+  .btn-close-modal {
+    background: transparent;
+    border: 1.5px solid var(--divider);
+    color: var(--text-mid);
+  }
+  .btn-close-modal:hover { border-color: var(--text-mid); }
+
+  /* Generating state */
+  .modal-generating {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 60px 28px;
+    color: var(--text-light);
+    font-size: 0.85rem;
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--divider);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── MOBILE ── */
+  @media (max-width: 768px) {
+    .app { flex-direction: column; overflow: auto; }
+    .panel-left, .panel-right { width: 100%; height: auto; }
+    .panel-left { height: 60vh; }
+    html, body { overflow: auto; }
+  }
+
+  /* ── SELF-TEST BUTTON & PROGRESS ── */
+  .self-test-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 28px 0;
+    flex-shrink: 0;
+  }
+  .self-test-btn {
+    background: transparent;
+    border: 1px solid rgba(200,169,110,0.35);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgba(200,169,110,0.8);
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .self-test-btn:hover:not(:disabled) {
+    background: rgba(200,169,110,0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .self-test-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .self-test-btn .test-icon { font-size: 0.8rem; }
+
+  .self-test-progress {
+    flex: 1;
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+  .self-test-progress.visible { display: flex; }
+
+  .test-progress-bar {
+    flex: 1;
+    height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .test-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+  .test-progress-label {
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.3);
+    white-space: nowrap;
+    letter-spacing: 0.03em;
+  }
+  .stop-test-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.25);
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 2px;
+    transition: color 0.2s;
+  }
+  .stop-test-btn:hover { color: rgba(192,57,43,0.8); }
+
+
+  /* ── CHAT-NATIVE ACTION BUTTONS ── */
+  .msg-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 10px;
+  }
+
+  .msg-action-btn {
+    padding: 7px 15px;
+    border-radius: 20px;
+    font-family: var(--font-sans);
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: all 0.18s;
+    outline: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.78);
+  }
+  .msg-action-btn:hover:not(:disabled) {
+    background: rgba(255,255,255,0.13);
+    border-color: rgba(255,255,255,0.3);
+    color: #fff;
+  }
+  .msg-action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .msg-action-btn.primary {
+    background: var(--accent);
+    color: var(--left-bg);
+    border-color: transparent;
+  }
+  .msg-action-btn.primary:hover:not(:disabled) { background: #d4b87a; }
+
+  .msg-action-btn.risk-high {
+    border-color: rgba(192,57,43,0.5);
+    color: rgba(255,180,170,0.9);
+    background: rgba(192,57,43,0.08);
+  }
+  .msg-action-btn.risk-high:hover:not(:disabled) {
+    background: rgba(192,57,43,0.18);
+    border-color: #c0392b;
+    color: #ffb3aa;
+  }
+
+  .msg-action-btn.used {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  .topic-picker {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 28px 6px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    animation: fadeUp 0.35s ease both;
+  }
+  .topic-picker.visible { display: flex; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .topic-picker-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .topic-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .topic-chip {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(200,169,110,0.3);
+    border-radius: 20px;
+    padding: 6px 13px;
+    font-family: var(--font-sans);
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.75);
+    cursor: pointer;
+    transition: all 0.18s;
+    letter-spacing: 0.01em;
+  }
+  .topic-chip:hover {
+    background: rgba(200,169,110,0.15);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .topic-chip.high-risk {
+    border-color: rgba(192,57,43,0.45);
+    color: rgba(255,180,170,0.9);
+  }
+  .topic-chip.high-risk:hover {
+    background: rgba(192,57,43,0.15);
+    border-color: #c0392b;
+    color: #ffb3aa;
+  }
+  .topic-chip.selected {
+    background: rgba(200,169,110,0.2);
+    border-color: var(--accent);
+    color: var(--accent);
+    pointer-events: none;
+  }
+
+  /* Completion glow on report button */
+  @keyframes btnGlow {
+    0%   { box-shadow: 0 0 0 0 rgba(200,169,110,0.4); }
+    70%  { box-shadow: 0 0 0 10px rgba(200,169,110,0); }
+    100% { box-shadow: 0 0 0 0 rgba(200,169,110,0); }
+  }
+  .report-btn.ready { animation: btnGlow 1.5s ease 3; }
+
+  /* ── API Key Bar ── */
+  .api-key-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 200;
+    background: #111122;
+    border-bottom: 1px solid rgba(200,169,110,0.3);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    font-family: var(--font-sans);
+    transition: transform 0.3s ease;
+  }
+  .api-key-bar.hidden {
+    transform: translateY(-100%);
+  }
+  .api-key-bar label {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .api-key-input {
+    flex: 1;
+    max-width: 420px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 7px;
+    padding: 6px 12px;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .api-key-input:focus { border-color: rgba(200,169,110,0.5); }
+  .api-key-input::placeholder { color: rgba(255,255,255,0.2); }
+  .api-key-confirm {
+    background: var(--accent);
+    border: none;
+    border-radius: 7px;
+    padding: 6px 14px;
+    color: #111122;
+    font-family: var(--font-sans);
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.03em;
+    transition: background 0.2s;
+  }
+  .api-key-confirm:hover { background: #d4b87a; }
+  .api-key-set-indicator {
+    font-size: 0.72rem;
+    color: var(--green);
+    display: none;
+    align-items: center;
+    gap: 5px;
+  }
+  .api-key-set-indicator.visible { display: flex; }
+  .api-key-change {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    padding: 4px 10px;
+    color: rgba(255,255,255,0.4);
+    font-size: 0.7rem;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    transition: all 0.2s;
+  }
+  .api-key-change:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+
+  /* Push app down when key bar is visible */
+  body.key-bar-visible .app {
+    padding-top: 44px;
+  }
+</style>
+</head>
+<body>
+
+<div class="api-key-bar" id="apiKeyBar">
+  <label>Anthropic API Key</label>
+  <input
+    type="password"
+    id="apiKeyInput"
+    class="api-key-input"
+    placeholder="sk-ant-api03-…"
+    autocomplete="off"
+    spellcheck="false"
+  />
+  <button class="api-key-confirm" id="apiKeyConfirm">Confirm</button>
+  <div class="api-key-set-indicator" id="apiKeySetIndicator">
+    <span>✓ Key set</span>
+    <button class="api-key-change" id="apiKeyChange">Change</button>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- ══════════════ LEFT PANEL ══════════════ -->
+  <div class="panel-left">
+    <div class="left-header">
+      <h1>RoPA <span>Whisperer</span></h1>
+      <p>Tell us what your team does. We'll handle the legal part.</p>
+    </div>
+
+    <!-- Self-test bar -->
+    <div class="self-test-bar">
+      <button class="self-test-btn" id="selfTestBtn" disabled title="Run the Maya Chen demo script automatically">
+        <span class="test-icon">▶</span> Run Demo
+      </button>
+      <div class="self-test-progress" id="selfTestProgress">
+        <div class="test-progress-bar">
+          <div class="test-progress-fill" id="testProgressFill"></div>
+        </div>
+        <span class="test-progress-label" id="testProgressLabel">Starting…</span>
+        <button class="stop-test-btn" id="stopTestBtn" title="Stop demo">✕</button>
+      </div>
+    </div>
+
+    <div class="chat-messages" id="chatMessages"></div>
+
+    <div class="typing-indicator" id="typingIndicator">
+      <div class="typing-dots">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+
+    <!-- Topic picker — shown after interview is complete -->
+    <div class="topic-picker" id="topicPicker">
+      <div class="topic-picker-label" id="topicPickerLabel">Topics not yet covered — select one to explore</div>
+      <div class="topic-chips" id="topicChips"></div>
+    </div>
+
+    <div class="chat-input-area">
+      <div class="chat-input-row">
+        <textarea
+          id="chatInput"
+          class="chat-input"
+          placeholder="Type your answer…"
+          rows="1"
+          disabled
+        ></textarea>
+        <button class="send-btn" id="sendBtn" disabled title="Send">
+          <svg width="18" height="18" viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ RIGHT PANEL ══════════════ -->
+  <div class="panel-right">
+    <div class="right-header">
+      <div class="right-header-text">
+        <h2>Article 30 Record</h2>
+        <p>Building in real time</p>
+      </div>
+      <button class="new-btn" id="newInterviewBtn">↺ New Interview</button>
+    </div>
+
+    <div class="ropa-scroll" id="ropaFields">
+      <!-- populated by renderRopaFields() -->
+    </div>
+
+    <div class="risk-section">
+      <div class="risk-toggle" id="riskToggle">
+        <span class="risk-toggle-label">⚠ Risk Flags</span>
+        <span class="risk-count" id="riskCount"></span>
+        <span class="risk-chevron" id="riskChevron">▼</span>
+      </div>
+      <div class="risk-flags-list" id="riskFlagsList"></div>
+    </div>
+
+    <div class="report-btn-area">
+      <button class="report-btn" id="reportBtn" disabled>
+        Generate Final Report
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════ MODAL ══════════════ -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Article 30 Report &amp; DPO Summary</h3>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="modal-footer button btn-download-pdf" id="downloadPdfBtn">⬇ Download report (.html → PDF)</button>
+      <button class="modal-footer button btn-close-modal" id="modalCloseFoot">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+
+const ropaState = {
+  fields: {
+    activityName:         { label: "Processing Activity Name",         value: "",   status: "empty" },
+    purpose:              { label: "Purpose of Processing",            value: "",   status: "empty" },
+    dataSubjects:         { label: "Categories of Data Subjects",      value: "",   status: "empty" },
+    personalDataCategories:{ label: "Categories of Personal Data",     value: "",   status: "empty" },
+    specialCategoryData:  { label: "Special Category Data (Art. 9)",   value: null, status: "empty" },
+    recipients:           { label: "Recipients & Processors",          value: [],   status: "empty" },
+    thirdCountryTransfers:{ label: "Third Country Transfers",          value: [],   status: "empty" },
+    retentionPeriod:      { label: "Retention Period",                 value: "",   status: "empty" },
+    securityMeasures:     { label: "Security Measures",                value: "",   status: "empty" },
+    lawfulBasis:          { label: "Lawful Basis (Art. 6)",            value: "",   status: "empty" }
+  },
+  riskFlags: [],
+  conversationHistory: [],
+  triggersFired: new Set(),
+  interviewComplete: false
+};
+
+// ═══════════════════════════════════════════════════════
+// SYSTEM PROMPT
+// ═══════════════════════════════════════════════════════
+
+const SYSTEM_PROMPT = `You are the RoPA Whisperer — an AI interviewer conducting a GDPR compliance interview with a non-lawyer employee to build a Record of Processing Activities entry for their team's work.
+
+YOUR PERSONA:
+You are warm, curious, and reassuring. You sound like a smart colleague doing an informal audit — not a regulator, not a lawyer, not a robot. You use plain English at all times. Never say: "lawful basis", "data subject", "processing activity", "controller", "processor", "Art. 6", or any GDPR jargon unless the user themselves uses it first. Instead say: "the reason you collect this information", "the people whose data you handle", "what your team does with the data", "outside companies you share data with."
+
+YOUR GOAL:
+Gather enough information to populate ALL of the following fields:
+1. What this data activity is called / what it's for
+2. Why the team collects or uses this personal information
+3. Who the people are whose data is involved (customers? staff? job applicants?)
+4. What categories of personal information are involved
+5. Whether any sensitive data is involved (health, religion, politics, biometrics, ethnicity, sexual orientation, union membership)
+6. Which outside tools, vendors, or companies receive the data
+7. Whether any of those vendors or any data storage is outside Europe (UK, US, India, anywhere non-EEA)
+8. How long the data is kept and what happens to it when it's deleted
+9. What security is in place (rough sense: encryption, access controls, etc.)
+10. The reason the company is legally allowed to use this data — is it because people gave consent? Because it's in a contract? Because the law requires it?
+
+YOUR INTERVIEW STYLE:
+- Ask ONE question at a time, maximum two if they are tightly related
+- Always acknowledge what the user just said before asking the next question
+- Follow threads — if someone mentions a vendor name, ask where that vendor is based
+- If an answer is vague about retention ("we keep it for a while"), gently press for specifics: "Do you have a rough idea — months? Years? Is there a policy?"
+- If someone mentions a tool that is well-known (Salesforce, HubSpot, Workday, Google Analytics, Mailchimp, AWS, Intercom, Slack, Zoom, Greenhouse, Effy, Workday, etc.), you already know it is likely US-based — follow up accordingly
+- If special category data seems to be involved, don't alarm the user — just note it and ask a clarifying follow-up naturally
+- When you have enough for a field, do not keep asking about it
+
+LEGAL INFERENCE ENGINE (run silently in parallel — never mention this to the user):
+After every user message, check the following triggers and fire them if relevant:
+
+TRIGGER_VENDOR: If a third-party tool or vendor is mentioned → queue question about where that vendor is based / whether there's a contract in place
+
+TRIGGER_TRANSFER: If a non-EEA country is mentioned or implied (US vendors, India-based teams, UK post-Brexit) → add to thirdCountryTransfers, flag as risk HIGH if no transfer mechanism mentioned
+
+TRIGGER_SPECIAL_CATEGORY: If health data, medical records, disability, religion, ethnicity, political views, biometrics, union membership, or sexual orientation is mentioned → set specialCategoryData to true, flag as risk HIGH "Art. 9 data identified — heightened lawful basis required"
+
+TRIGGER_CHILDREN: If users/customers include minors or there is any ambiguity about age → flag as risk HIGH "Possible processing of children's data — Art. 8 applies"
+
+TRIGGER_AUTOMATED_DECISIONS: If scoring, ranking, automated rejection, profiling or algorithmic decisions about people are mentioned → flag as risk HIGH "Possible Art. 22 automated decision-making"
+
+TRIGGER_VAGUE_RETENTION: If retention answer is "forever", "not sure", "we don't really delete", or genuinely unknown → flag as risk MEDIUM "No defined retention period — non-compliant with Art. 5(1)(e) storage limitation"
+
+TRIGGER_MARKETING: If marketing, newsletters, targeting, or profiling for commercial purposes is mentioned → flag as risk MEDIUM, queue question about consent and opt-out mechanism
+
+TRIGGER_LARGE_SCALE: If the processing seems to involve large volumes of people (thousands+ of data subjects) → flag as risk LOW "Large-scale processing — consider whether DPIA required under Art. 35"
+
+OUTPUT FORMAT — CRITICAL:
+IMPORTANT: When outputting the JSON block, never wrap it in markdown code fences (no backticks). Output the raw JSON directly between the |||JSON||| delimiters.
+Every single response you give MUST end with a JSON block in this exact format, after your conversational message, separated by the delimiter |||JSON|||:
+
+|||JSON|||
+{
+  "fieldsUpdated": {
+    "activityName": { "value": "string or null", "status": "empty|partial|complete" },
+    "purpose": { "value": "string or null", "status": "empty|partial|complete" },
+    "dataSubjects": { "value": "string or null", "status": "empty|partial|complete" },
+    "personalDataCategories": { "value": "string or null", "status": "empty|partial|complete" },
+    "specialCategoryData": { "value": "string or null", "status": "empty|partial|complete" },
+    "recipients": { "value": ["array", "of", "strings"], "status": "empty|partial|complete" },
+    "thirdCountryTransfers": { "value": ["array of countries/vendors"], "status": "empty|partial|complete" },
+    "retentionPeriod": { "value": "string or null", "status": "empty|partial|complete" },
+    "securityMeasures": { "value": "string or null", "status": "empty|partial|complete" },
+    "lawfulBasis": { "value": "string or null", "status": "empty|partial|complete" }
+  },
+  "newRiskFlags": [
+    {
+      "id": "unique_snake_case_string",
+      "severity": "HIGH|MEDIUM|LOW",
+      "title": "Short flag title",
+      "summary": "One sentence: the single most important risk point for a legal professional — what specifically is wrong and why it matters",
+      "description": "Plain-language explanation of the legal issue",
+      "gdprRef": "e.g. Art. 9 GDPR",
+      "action": "Suggested action for the DPO"
+    }
+  ],
+  "interviewComplete": false
+}
+
+Set "interviewComplete": true only when you have at least partial values for all 10 fields and have no remaining critical follow-up questions.
+Only include fields in "fieldsUpdated" if they have changed in this turn.
+Only include "newRiskFlags" for flags not previously raised.
+|||JSON|||END`;
+
+// ═══════════════════════════════════════════════════════
+// GDPR HIGH-RISK TOPIC DEFINITIONS
+// ═══════════════════════════════════════════════════════
+
+const GDPR_TOPICS = [
+  {
+    key: 'dpia',
+    label: 'DPIA — Impact Assessments',
+    riskLevel: 'high',
+    description: 'Whether a Data Protection Impact Assessment has been done for high-risk processing'
+  },
+  {
+    key: 'dsr',
+    label: 'Data Subject Rights',
+    riskLevel: 'high',
+    description: 'How the organisation handles access requests, erasure requests, and portability'
+  },
+  {
+    key: 'monitoring',
+    label: 'Employee Monitoring',
+    riskLevel: 'high',
+    description: 'Email monitoring, internet usage tracking, location data, productivity surveillance'
+  },
+  {
+    key: 'breach',
+    label: 'Breach History & Response',
+    riskLevel: 'high',
+    description: 'Past data breaches or incidents, and whether an incident response procedure exists'
+  },
+  {
+    key: 'subprocessors',
+    label: 'Sub-processor Chains',
+    riskLevel: 'high',
+    description: 'Whether vendors use their own sub-processors who also receive the data'
+  },
+  {
+    key: 'background_checks',
+    label: 'Background Checks',
+    riskLevel: 'high',
+    description: 'Criminal record checks, credit checks, or reference verification on staff or candidates'
+  },
+  {
+    key: 'privacy_notices',
+    label: 'Privacy Notices',
+    riskLevel: 'medium',
+    description: 'Whether employees and candidates have been told how their data is used (Art. 13/14)'
+  },
+  {
+    key: 'intragroup',
+    label: 'Intra-group Transfers',
+    riskLevel: 'medium',
+    description: 'Whether data is shared with parent companies, subsidiaries, or group entities'
+  },
+  {
+    key: 'data_minimisation',
+    label: 'Data Minimisation',
+    riskLevel: 'medium',
+    description: 'Whether only the data strictly necessary for the purpose is being collected'
+  },
+  {
+    key: 'dpo',
+    label: 'DPO & Governance',
+    riskLevel: 'medium',
+    description: 'Whether a DPO is appointed, who is responsible, and how data queries are handled internally'
+  },
+  {
+    key: 'biometrics',
+    label: 'Biometric Data',
+    riskLevel: 'high',
+    description: 'Fingerprint scanners, facial recognition, or other biometric access systems'
+  },
+  {
+    key: 'whistleblowing',
+    label: 'Whistleblowing Systems',
+    riskLevel: 'medium',
+    description: 'Speak-up or whistleblowing platforms and how reports are handled'
+  },
+  {
+    key: 'cookies',
+    label: 'Cookies & Website Tracking',
+    riskLevel: 'medium',
+    description: 'Cookie consent on public-facing websites, analytics tools, tracking pixels'
+  },
+  {
+    key: 'joint_controller',
+    label: 'Joint Controllership',
+    riskLevel: 'medium',
+    description: 'Whether any processing is done jointly with another organisation'
+  }
+];
+
+// Topic flow state — tracks where we are in the post-completion deep-dive
+const topicState = {
+  phase: 'none',          // 'none' | 'picking' | 'clarifying' | 'wrap'
+  remainingTopics: [],    // topic keys not yet discussed
+  currentTopic: null,     // topic key being explored right now
+  clarifyingCount: 0,     // how many clarifying answers received for current topic (max 2)
+  discussedTopics: new Set() // topics already covered (by interview OR deep-dive)
+};
+
+// Opening message (displayed without an API call)
+const OPENING_MESSAGE = "Hi! I'm here to help document what your team does with personal data — don't worry, I'll keep this jargon-free. There are no wrong answers, and this won't take long. Let's start simple: can you tell me in your own words what your team does day-to-day, and roughly what kind of information about people you work with?";
+
+// ═══════════════════════════════════════════════════════
+// DOM REFERENCES
+// ═══════════════════════════════════════════════════════
+
+const chatMessages     = document.getElementById('chatMessages');
+const chatInput        = document.getElementById('chatInput');
+const sendBtn          = document.getElementById('sendBtn');
+const typingIndicator  = document.getElementById('typingIndicator');
+const ropaFieldsEl     = document.getElementById('ropaFields');
+const riskToggle       = document.getElementById('riskToggle');
+const riskFlagsList    = document.getElementById('riskFlagsList');
+const riskCount        = document.getElementById('riskCount');
+const riskChevron      = document.getElementById('riskChevron');
+const reportBtn        = document.getElementById('reportBtn');
+const newInterviewBtn  = document.getElementById('newInterviewBtn');
+const modalOverlay     = document.getElementById('modalOverlay');
+const modalBody        = document.getElementById('modalBody');
+const modalClose       = document.getElementById('modalClose');
+const modalCloseFoot   = document.getElementById('modalCloseFoot');
+const downloadBtn      = document.getElementById('downloadBtn');
+const topicPicker      = document.getElementById('topicPicker');
+const topicPickerLabel = document.getElementById('topicPickerLabel');
+const topicChipsEl     = document.getElementById('topicChips');
+
+// Tracks whether the interim prompt has already been shown this session
+let interimPromptShown = false;
+
+// ═══════════════════════════════════════════════════════
+// RENDER FUNCTIONS
+// ═══════════════════════════════════════════════════════
+
+function renderRopaFields(updatedKeys = []) {
+  const fieldDefs = [
+    { key: 'activityName',          label: 'Processing Activity Name' },
+    { key: 'purpose',               label: 'Purpose of Processing' },
+    { key: 'dataSubjects',          label: 'Data Subjects' },
+    { key: 'personalDataCategories',label: 'Categories of Personal Data' },
+    { key: 'specialCategoryData',   label: 'Special Category Data (Art. 9)' },
+    { key: 'recipients',            label: 'Recipients & Processors' },
+    { key: 'thirdCountryTransfers', label: 'Third Country Transfers' },
+    { key: 'retentionPeriod',       label: 'Retention Period' },
+    { key: 'securityMeasures',      label: 'Security Measures' },
+    { key: 'lawfulBasis',           label: 'Lawful Basis (Art. 6)' }
+  ];
+
+  ropaFieldsEl.innerHTML = fieldDefs.map(({ key, label }) => {
+    const field = ropaState.fields[key];
+    const status = field.status;
+    const isUpdated = updatedKeys.includes(key);
+    let displayValue = '';
+
+    const val = field.value;
+    if (Array.isArray(val)) {
+      displayValue = val.length ? val.join(', ') : '';
+    } else if (val !== null && val !== '' && val !== undefined) {
+      displayValue = String(val);
+    }
+
+    const isFilled = displayValue !== '';
+
+    // Special tag for Art. 9
+    let extra = '';
+    if (key === 'specialCategoryData' && isFilled && String(val).toLowerCase() !== 'none' && String(val).toLowerCase() !== 'no') {
+      extra = `<span class="art9-badge">Art. 9 — Sensitive Data</span>`;
+    }
+
+    return `
+      <div class="ropa-field ${isUpdated ? 'just-updated' : ''}" id="field-${key}">
+        <div class="status-dot ${status}"></div>
+        <div class="ropa-field-content">
+          <div class="ropa-field-label">${label}</div>
+          <div class="ropa-field-value ${isFilled ? 'filled' : ''}">
+            ${isFilled ? escHtml(displayValue) : 'Not yet captured…'}
+            ${extra}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderRiskFlags() {
+  const flags = ropaState.riskFlags;
+
+  if (flags.length === 0) {
+    riskCount.classList.remove('visible');
+    riskFlagsList.innerHTML = '<div style="color:var(--text-light);font-size:0.8rem;padding:8px 0;">No flags raised yet.</div>';
+    return;
+  }
+
+  riskCount.textContent = flags.length;
+  riskCount.classList.add('visible');
+
+  riskFlagsList.innerHTML = flags.map(f => `
+    <div class="risk-card ${f.severity}">
+      <div class="risk-card-title">
+        <span class="risk-sev">${f.severity}</span>
+        ${escHtml(f.title)}
+      </div>
+      <div class="risk-card-desc">${escHtml(f.description)}</div>
+      <div class="risk-card-ref">${escHtml(f.gdprRef)}</div>
+      <div class="risk-card-action">→ ${escHtml(f.action)}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// TOPIC PICKER FLOW
+// ═══════════════════════════════════════════════════════
+
+// Ask Claude which of the master topic list were NOT covered in the interview
+async function detectUncoveredTopics() {
+  const topicList = GDPR_TOPICS.map(t => `${t.key}: ${t.description}`).join('\n');
+
+  // Build a compact summary — strip JSON blobs and cap at last 30 turns
+  const recentHistory = ropaState.conversationHistory.slice(-30);
+  const conversationSummary = recentHistory
+    .map(m => {
+      const text = m.content.split('|||JSON|||')[0].trim();
+      // Cap each message at 300 chars to keep the prompt lean
+      return `${m.role.toUpperCase()}: ${text.slice(0, 300)}${text.length > 300 ? '…' : ''}`;
+    })
+    .join('\n\n');
+
+  const prompt = `You are a GDPR expert reviewing a compliance interview transcript.
+
+Interview transcript (recent):
+${conversationSummary}
+
+GDPR compliance topics to check (key: description):
+${topicList}
+
+Based on the transcript, identify which topics were NOT meaningfully discussed.
+Reply with ONLY a raw JSON array of uncovered topic keys — nothing else. Example: ["dpia","monitoring","breach"]`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": anthropicApiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 300,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    if (!response.ok) {
+      console.warn("detectUncoveredTopics: non-OK response", response.status);
+      return GDPR_TOPICS.map(t => t.key);
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch(e) {
+      console.warn("detectUncoveredTopics: response.json() failed:", e);
+      return GDPR_TOPICS.map(t => t.key);
+    }
+
+    const raw = (data?.content?.[0]?.text || '')
+      .trim()
+      .replace(/```json/g, '')
+      .replace(/```/g, '')
+      .trim();
+
+    let uncovered;
+    try {
+      uncovered = JSON.parse(raw);
+    } catch(e) {
+      // Try extracting the array with a brace extraction fallback
+      const start = raw.indexOf('[');
+      const end   = raw.lastIndexOf(']');
+      if (start !== -1 && end !== -1) {
+        try { uncovered = JSON.parse(raw.slice(start, end + 1)); } catch(_) {}
+      }
+    }
+
+    return Array.isArray(uncovered) ? uncovered : GDPR_TOPICS.map(t => t.key);
+
+  } catch(e) {
+    console.warn("detectUncoveredTopics: outer error:", e);
+    return GDPR_TOPICS.map(t => t.key);
+  }
+}
+
+// Render chip panel with a given list of topic keys
+function renderTopicChips(topicKeys, label) {
+  topicPickerLabel.textContent = label || 'Topics not yet covered — select one to explore';
+  topicChipsEl.innerHTML = '';
+
+  topicKeys.forEach(key => {
+    const topic = GDPR_TOPICS.find(t => t.key === key);
+    if (!topic) return;
+
+    const chip = document.createElement('button');
+    chip.className = `topic-chip ${topic.riskLevel === 'high' ? 'high-risk' : ''}`;
+    chip.textContent = topic.label;
+    chip.title = topic.description;
+    chip.addEventListener('click', () => selectTopic(key, chip));
+    topicChipsEl.appendChild(chip);
+  });
+
+  topicPicker.classList.add('visible');
+}
+
+// User selects a topic chip
+async function selectTopic(key, chipEl) {
+  const topic = GDPR_TOPICS.find(t => t.key === key);
+  if (!topic) return;
+
+  // Mark chip as selected visually
+  topicChipsEl.querySelectorAll('.topic-chip').forEach(c => c.classList.remove('selected'));
+  chipEl.classList.add('selected');
+
+  // Update topic state
+  topicState.currentTopic = key;
+  topicState.clarifyingCount = 0;
+  topicState.phase = 'clarifying';
+
+  // Hide the picker while we ask the two questions
+  topicPicker.classList.remove('visible');
+
+  // Inject a system-level instruction into the conversation so Claude knows what to do
+  const injectedInstruction = `[SYSTEM NOTE — NOT VISIBLE TO USER]: The user has selected the topic "${topic.label}" for further exploration. Your task is to ask exactly 2 focused, plain-English clarifying questions about this topic — one at a time. The topic context is: ${topic.description}. Do not mention GDPR articles. Ask naturally, as you have throughout this interview. After the user answers each question, acknowledge their answer warmly before asking the next one. Do NOT ask more than 2 questions on this topic. After the second answer is received, you will be instructed separately on what to do next. Continue using the |||JSON||| format for all responses, updating any RoPA fields or risk flags that the answers reveal.`;
+
+  ropaState.conversationHistory.push({ role: "user", content: injectedInstruction });
+
+  setInputEnabled(false);
+  showTyping(true);
+
+  try {
+    const raw = await callClaude(ropaState.conversationHistory);
+    const { chatText, jsonData } = parseResponse(raw);
+    ropaState.conversationHistory.push({ role: "assistant", content: raw });
+    showTyping(false);
+    appendMessage('ai', chatText);
+    const updatedKeys = applyJsonUpdate(jsonData);
+    renderRopaFields(updatedKeys);
+    renderRiskFlags();
+  } catch(e) {
+    showTyping(false);
+    appendMessage('ai', "Sorry, I lost my train of thought — could you resend that?");
+    ropaState.conversationHistory.pop();
+  }
+
+  setInputEnabled(true);
+  chatInput.focus();
+}
+
+// Called after each user message when in 'clarifying' phase
+// Tracks count and triggers wrap-up after 2 answers
+async function advanceTopicPhase() {
+  if (topicState.phase !== 'clarifying') return;
+
+  topicState.clarifyingCount++;
+
+  if (topicState.clarifyingCount >= 2) {
+    // Mark this topic as done
+    topicState.discussedTopics.add(topicState.currentTopic);
+    topicState.phase = 'wrap';
+    topicState.currentTopic = null;
+    topicState.clarifyingCount = 0;
+
+    // Compute remaining topics
+    const remaining = topicState.remainingTopics.filter(
+      k => !topicState.discussedTopics.has(k)
+    );
+
+    // Build the high-risk topic labels for Claude to list in its wrap-up message
+    const highRiskLabels = GDPR_TOPICS
+      .filter(t => remaining.includes(t.key) && t.riskLevel === 'high')
+      .map(t => `• ${t.label}`)
+      .join('\n');
+
+    const allRemainingLabels = GDPR_TOPICS
+      .filter(t => remaining.includes(t.key))
+      .map(t => `• ${t.label}`)
+      .join('\n');
+
+    // Inject instruction for the wrap-up question
+    const wrapInstruction = `[SYSTEM NOTE — NOT VISIBLE TO USER]: You have now asked 2 clarifying questions on the current topic. Please now ask the user warmly: "Is there anything else you think is important to mention — anything about how your team handles data that we haven't touched on yet?" Then naturally mention that the following areas are still worth thinking about from a compliance perspective:\n${allRemainingLabels}\n\nKeep the tone light and not alarming. Continue using the |||JSON||| format.`;
+
+    ropaState.conversationHistory.push({ role: "user", content: wrapInstruction });
+
+    setInputEnabled(false);
+    showTyping(true);
+
+    try {
+      const raw = await callClaude(ropaState.conversationHistory);
+      const { chatText, jsonData } = parseResponse(raw);
+      ropaState.conversationHistory.push({ role: "assistant", content: raw });
+      showTyping(false);
+      appendMessage('ai', chatText);
+      const updatedKeys = applyJsonUpdate(jsonData);
+      renderRopaFields(updatedKeys);
+      renderRiskFlags();
+
+      // Show remaining topic chips in chat instead of the bottom bar
+      if (remaining.length > 0) {
+        topicState.phase = 'picking'; // set immediately so demo can detect it
+        setTimeout(() => {
+          showTopicChipsInChat(remaining, "Is there anything else you'd like to add? Here are some other areas still worth covering:");
+        }, 600);
+      } else {
+        topicState.phase = 'none';
+      }
+    } catch(e) {
+      showTyping(false);
+      appendMessage('ai', "Sorry, I lost my train of thought — could you resend that?");
+      ropaState.conversationHistory.pop();
+    }
+
+    setInputEnabled(true);
+    chatInput.focus();
+  }
+}
+
+// ── Append an AI bubble with inline action buttons ──────────────────
+// Returns the bubble's action-row element so callers can attach listeners.
+function appendActionMessage(text, buttons) {
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+
+  const rowHtml = buttons.map((b, i) =>
+    `<button class="msg-action-btn ${b.primary ? 'primary' : ''} ${b.riskHigh ? 'risk-high' : ''}" data-idx="${i}">${escHtml(b.label)}</button>`
+  ).join('');
+
+  div.innerHTML = `
+    <div class="msg-label">RoPA Whisperer</div>
+    <div class="msg-bubble">
+      ${escHtml(text)}
+      <div class="msg-action-row">${rowHtml}</div>
+    </div>`;
+
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  const actionRow = div.querySelector('.msg-action-row');
+
+  // Wire each button — single-use: dims all buttons after any click
+  actionRow.querySelectorAll('.msg-action-btn').forEach((btn, idx) => {
+    btn.addEventListener('click', () => {
+      // Disable all buttons in this row immediately
+      actionRow.querySelectorAll('.msg-action-btn').forEach(b => b.classList.add('used'));
+      buttons[idx].onClick();
+    });
+  });
+
+  return actionRow;
+}
+
+// ── Show the interim pause message in chat ───────────────────────────
+function showInterimPrompt() {
+  setInputEnabled(false);
+  interimPromptShown = true;
+
+  appendActionMessage(
+    "I think I have enough information to put together an interim report — it may not be complete, but it covers what we've discussed so far. Would you like me to generate it now, or should we keep going and address the remaining areas that are relevant to your Article 30 record?",
+    [
+      {
+        label: '⬇ Generate interim report',
+        primary: true,
+        onClick: async () => {
+          setInputEnabled(true);
+          await generateReport();
+          // After modal closes, offer to continue
+          const onClose = (e) => {
+            if (e.target === modalOverlay || e.target.id === 'modalClose' || e.target.id === 'modalCloseFoot') {
+              modalOverlay.removeEventListener('click', onClose);
+              if (!topicPickerLaunched && topicState.phase === 'none') {
+                showContinueOnlyPrompt();
+              }
+            }
+          };
+          modalOverlay.addEventListener('click', onClose);
+        }
+      },
+      {
+        label: 'Continue interview →',
+        onClick: async () => {
+          topicPickerLaunched = true;
+          await startTopicPickerFlow();
+        }
+      }
+    ]
+  );
+}
+
+// Shown after user generates interim report and closes modal
+function showContinueOnlyPrompt() {
+  appendActionMessage(
+    "Report done. Would you like to continue and cover the remaining areas?",
+    [{
+      label: 'Continue interview →',
+      onClick: async () => {
+        topicPickerLaunched = true;
+        await startTopicPickerFlow();
+      }
+    }]
+  );
+}
+
+function hideInterimPrompt() {
+  // No-op — kept for compatibility with resetState calls
+}
+
+// ── Topic picker flow: detect uncovered topics, show as chat chips ───
+async function startTopicPickerFlow() {
+  setInputEnabled(false);
+  showTyping(true);
+
+  await new Promise(r => setTimeout(r, 500));
+  const uncoveredKeys = await detectUncoveredTopics();
+  topicState.remainingTopics = uncoveredKeys;
+  showTyping(false);
+
+  if (uncoveredKeys.length === 0) {
+    appendMessage('ai', "That covers everything I had on my list — great thoroughness! Feel free to generate your final report whenever you're ready.");
+    topicState.phase = 'none';
+    setInputEnabled(true);
+    return;
+  }
+
+  // Show uncovered topics as inline chips inside a chat bubble
+  showTopicChipsInChat(
+    uncoveredKeys,
+    "There are a few areas we haven't touched on yet that are relevant to your Article 30 record. Select one and I'll ask you a couple of focused questions about it."
+  );
+
+  topicState.phase = 'picking';
+  setInputEnabled(true);
+}
+
+// Renders topic chips inside a chat bubble
+function showTopicChipsInChat(topicKeys, introText) {
+  const validTopics = topicKeys
+    .map(key => GDPR_TOPICS.find(t => t.key === key))
+    .filter(Boolean);
+
+  if (validTopics.length === 0) return;
+
+  const buttons = validTopics.map(topic => ({
+    label: topic.label,
+    riskHigh: topic.riskLevel === 'high',
+    onClick: () => handleTopicChipClick(topic.key)
+  }));
+
+  appendActionMessage(introText, buttons);
+}
+
+// Called when a topic chip is clicked in chat
+async function handleTopicChipClick(key) {
+  const topic = GDPR_TOPICS.find(t => t.key === key);
+  if (!topic) return;
+
+  topicState.currentTopic = key;
+  topicState.clarifyingCount = 0;
+  topicState.phase = 'clarifying';
+
+  // Also hide the bottom topic-picker bar if it was visible
+  topicPicker.classList.remove('visible');
+
+  const injectedInstruction = `[SYSTEM NOTE — NOT VISIBLE TO USER]: The user has selected the topic "${topic.label}" for further exploration. Ask exactly ONE focused, plain-English question about this topic now. The topic context: ${topic.description}. Do not mention GDPR articles. Ask naturally, as you have throughout the interview. Continue using the |||JSON||| format, updating any RoPA fields or risk flags the answer reveals.`;
+
+  ropaState.conversationHistory.push({ role: "user", content: injectedInstruction });
+  setInputEnabled(false);
+  showTyping(true);
+
+  try {
+    const raw = await callClaude(ropaState.conversationHistory);
+    const { chatText, jsonData } = parseResponse(raw);
+    ropaState.conversationHistory.push({ role: "assistant", content: raw });
+    showTyping(false);
+    appendMessage('ai', chatText);
+    const updatedKeys = applyJsonUpdate(jsonData);
+    renderRopaFields(updatedKeys);
+    renderRiskFlags();
+  } catch(e) {
+    showTyping(false);
+    appendMessage('ai', "Sorry, I lost my train of thought — please pick a topic again.");
+    ropaState.conversationHistory.pop();
+    topicState.phase = 'picking';
+  }
+
+  setInputEnabled(true);
+  chatInput.focus();
+}
+
+function countGreenFields() {
+  return Object.values(ropaState.fields).filter(f => f.status === 'complete').length;
+}
+
+// Track whether we've already launched the topic picker
+let topicPickerLaunched = false;
+
+function updateReportButton() {
+  const greenCount = countGreenFields();
+  const shouldEnable = greenCount >= 6 || ropaState.interviewComplete;
+
+  if (shouldEnable) {
+    reportBtn.disabled = false;
+    reportBtn.classList.add('ready');
+
+    // Show the interim pause message the first time we hit threshold —
+    // but NOT while the demo is running (it drives its own flow)
+    if (!topicPickerLaunched && topicState.phase === 'none' && !interimPromptShown) {
+      if (!demoRunning) {
+        showInterimPrompt();
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// CHAT RENDERING
+// ═══════════════════════════════════════════════════════
+
+function appendMessage(role, text) {
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `
+    <div class="msg-label">${role === 'ai' ? 'RoPA Whisperer' : 'You'}</div>
+    <div class="msg-bubble">${escHtml(text)}</div>`;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function showTyping(visible) {
+  typingIndicator.classList.toggle('visible', visible);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════════
+// API CALL
+// ═══════════════════════════════════════════════════════
+
+// API key stored in memory only — never written to localStorage or any server
+let anthropicApiKey = '';
+
+// Trim conversation history to avoid oversized requests.
+// Keeps the most recent `maxTurns` pairs; for older messages strips the JSON
+// blob so only the conversational text is kept (saves ~60% of tokens).
+function trimHistory(messages, maxTurns = 12) {
+  if (messages.length <= maxTurns * 2) return messages;
+
+  // Always keep the first message (the opening) for context
+  const head = messages.slice(0, 1);
+
+  // Keep the most recent maxTurns * 2 messages in full
+  const tail = messages.slice(-maxTurns * 2);
+
+  // For any messages in between, strip the JSON blob to save tokens
+  const middle = messages.slice(1, -maxTurns * 2).map(m => ({
+    role: m.role,
+    content: m.content.split('|||JSON|||')[0].trim()
+  })).filter(m => m.content.length > 0);
+
+  const trimmed = [...head, ...middle, ...tail];
+
+  // API requires strictly alternating user/assistant — enforce it
+  const cleaned = [];
+  let lastRole = null;
+  for (const m of trimmed) {
+    if (m.role !== lastRole) {
+      cleaned.push(m);
+      lastRole = m.role;
+    }
+    // If same role twice in a row, skip the duplicate
+  }
+  // Must start with user
+  while (cleaned.length > 0 && cleaned[0].role !== 'user') cleaned.shift();
+  return cleaned;
+}
+
+async function callClaude(messages, retries = 3) {
+  if (!anthropicApiKey) throw new Error("No API key set. Please enter your Anthropic API key above.");
+
+  // Trim history before every call to keep request sizes manageable
+  const safeMessages = trimHistory(messages);
+
+  let lastError;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    // Exponential backoff: 0s, 4s, 8s, 16s
+    if (attempt > 0) {
+      const backoff = attempt * 4000;
+      if (testProgressLabel) testProgressLabel.textContent = `Rate limited — retrying in ${backoff/1000}s…`;
+      await new Promise(r => setTimeout(r, backoff));
+    }
+
+    let response;
+    try {
+      response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": anthropicApiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1500,
+          system: SYSTEM_PROMPT,
+          messages: safeMessages
+        })
+      });
+    } catch(networkErr) {
+      lastError = new Error("Network error — check your connection.");
+      continue;
+    }
+
+    // Rate limited or overloaded — retry after backoff
+    if (response.status === 429 || response.status === 529) {
+      lastError = new Error(`API rate limited (${response.status}) — retrying…`);
+      continue;
+    }
+
+    if (!response.ok) {
+      let errMsg = `API error ${response.status}`;
+      try {
+        const errBody = await response.json();
+        errMsg = errBody.error?.message || errMsg;
+      } catch(_) {}
+      throw new Error(errMsg);
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch(e) {
+      lastError = new Error("Received an unreadable response — retrying…");
+      continue;
+    }
+
+    if (!data.content || !data.content[0] || !data.content[0].text) {
+      lastError = new Error("Unexpected response shape from API.");
+      continue;
+    }
+
+    return data.content[0].text; // success
+  }
+
+  throw lastError || new Error("API call failed after multiple retries.");
+}
+
+// ═══════════════════════════════════════════════════════
+// RESPONSE PARSING
+// ═══════════════════════════════════════════════════════
+
+function parseResponse(raw) {
+  const parts = raw.split("|||JSON|||");
+  const chatText = parts[0].trim();
+  let jsonData = null;
+
+  if (parts[1]) {
+    // Layer 1: strip END marker and any markdown code fences the model may have added
+    let jsonString = parts[1]
+      .replace(/END\s*$/, '')   // strip trailing END marker
+      .replace(/```json/g, '')  // strip opening code fence with language tag
+      .replace(/```/g, '')      // strip any remaining backtick fences
+      .trim();
+
+    try {
+      jsonData = JSON.parse(jsonString);
+    } catch(e) {
+      // Layer 2: brace extraction fallback — find outermost { } and parse just that
+      const start = jsonString.indexOf('{');
+      const end   = jsonString.lastIndexOf('}');
+      if (start !== -1 && end !== -1) {
+        try {
+          jsonData = JSON.parse(jsonString.slice(start, end + 1));
+        } catch(e2) {
+          // Both attempts failed — degrade gracefully (chat still shows, panel skips update)
+          console.warn("JSON parse failed after fallback attempt:", e2, "\nRaw:", jsonString);
+        }
+      }
+    }
+  }
+
+  return { chatText, jsonData };
+}
+
+function applyJsonUpdate(jsonData) {
+  if (!jsonData) return [];
+  const updatedKeys = [];
+
+  // Update fields
+  if (jsonData.fieldsUpdated) {
+    for (const [key, update] of Object.entries(jsonData.fieldsUpdated)) {
+      if (ropaState.fields[key] !== undefined) {
+        if (update.value !== null && update.value !== undefined) {
+          ropaState.fields[key].value = update.value;
+        }
+        if (update.status) {
+          ropaState.fields[key].status = update.status;
+        }
+        updatedKeys.push(key);
+      }
+    }
+  }
+
+  // Append new risk flags (deduplicate by id)
+  if (jsonData.newRiskFlags && jsonData.newRiskFlags.length > 0) {
+    for (const flag of jsonData.newRiskFlags) {
+      if (!ropaState.riskFlags.find(f => f.id === flag.id)) {
+        ropaState.riskFlags.push(flag);
+        // Auto-open risk section when first flag appears
+        if (ropaState.riskFlags.length === 1) {
+          riskFlagsList.classList.add('open');
+          riskChevron.classList.add('open');
+        }
+      }
+    }
+  }
+
+  if (jsonData.interviewComplete) {
+    ropaState.interviewComplete = true;
+  }
+
+  return updatedKeys;
+}
+
+// ═══════════════════════════════════════════════════════
+// SEND MESSAGE
+// ═══════════════════════════════════════════════════════
+
+async function sendMessage() {
+  const text = chatInput.value.trim();
+  if (!text) return;
+
+  // Show user message
+  appendMessage('user', text);
+  chatInput.value = '';
+  chatInput.style.height = 'auto';
+  setInputEnabled(false);
+  showTyping(true);
+
+  // Add to conversation history
+  ropaState.conversationHistory.push({ role: "user", content: text });
+
+  try {
+    const raw = await callClaude(ropaState.conversationHistory);
+    const { chatText, jsonData } = parseResponse(raw);
+
+    // Add assistant turn to history (full raw, so context is preserved)
+    ropaState.conversationHistory.push({ role: "assistant", content: raw });
+
+    showTyping(false);
+    appendMessage('ai', chatText);
+
+    // Update state & re-render
+    const updatedKeys = applyJsonUpdate(jsonData);
+    renderRopaFields(updatedKeys);
+    renderRiskFlags();
+    updateReportButton();
+
+    // If we're in topic clarifying mode, advance the phase counter
+    // (advanceTopicPhase handles its own API call and sets input enabled/disabled)
+    if (topicState.phase === 'clarifying') {
+      await advanceTopicPhase();
+      return; // advanceTopicPhase re-enables input itself
+    }
+
+  } catch(err) {
+    showTyping(false);
+    appendMessage('ai', "Sorry, I lost my train of thought — could you resend that?");
+    console.error("API error:", err);
+    // Remove the last user message from history since it failed
+    ropaState.conversationHistory.pop();
+  }
+
+  setInputEnabled(true);
+  chatInput.focus();
+}
+
+// ═══════════════════════════════════════════════════════
+// PDF GENERATION
+// ═══════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════
+// PDF GENERATION — downloads a self-contained HTML file
+// User opens it in their browser and prints to PDF (Ctrl+P → Save as PDF)
+// This is the only approach that works inside sandboxed iframes.
+// ═══════════════════════════════════════════════════════
+
+function buildPDF(activityName, dateStr, safeFileName) {
+  const pdfBtn = document.getElementById('downloadPdfBtn');
+  const origText = pdfBtn.textContent;
+  pdfBtn.textContent = 'Downloading…';
+  pdfBtn.disabled = true;
+
+  try {
+    const reportHTML = document.getElementById('modalBody').innerHTML;
+
+    const fullDocument = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GDPR Report — ${activityName}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 10.5pt;
+      color: #1a1a2e;
+      background: #fff;
+      padding: 20pt;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .print-hint {
+      background: #f0f5fd;
+      border: 1px solid #2563a8;
+      border-radius: 6px;
+      padding: 10px 16px;
+      margin-bottom: 20px;
+      font-size: 9pt;
+      color: #2563a8;
+    }
+    .print-hint strong { font-weight: bold; }
+    @media print { .print-hint { display: none; } }
+    /* Cover */
+    .report-cover {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 22pt 26pt 18pt;
+      margin-bottom: 18pt;
+      border-bottom: 3px solid #c8a96e;
+    }
+    .report-cover-label { font-size: 8pt; color: rgba(200,169,110,0.85); letter-spacing: 1pt; text-transform: uppercase; margin-bottom: 5pt; }
+    .report-cover-title { font-size: 22pt; font-weight: bold; margin-bottom: 6pt; }
+    .report-cover-meta  { font-size: 8pt; color: rgba(255,255,255,0.5); display: flex; gap: 8pt; flex-wrap: wrap; }
+    .cover-dot { color: rgba(255,255,255,0.25); }
+    /* Sections */
+    .report-section { padding: 14pt 0; border-bottom: 1px solid #e0ddd6; }
+    .report-section:last-child { border-bottom: none; }
+    .report-section-header {
+      display: flex; align-items: center; gap: 10pt;
+      font-size: 12pt; font-weight: bold; margin-bottom: 10pt; color: #1a1a2e;
+    }
+    .section-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22pt; height: 22pt; min-width: 22pt;
+      background: #1a1a2e; color: #c8a96e;
+      border-radius: 4pt; font-size: 8pt; font-weight: bold;
+    }
+    .count-badges { display: flex; gap: 5pt; margin-left: auto; flex-wrap: wrap; }
+    .count-badge { font-size: 7pt; font-weight: bold; padding: 2pt 7pt; border-radius: 8pt; text-transform: uppercase; white-space: nowrap; }
+    .count-badge.high   { background: #fdf1f0; color: #c0392b; }
+    .count-badge.medium { background: #fdf8ed; color: #b7770d; }
+    .count-badge.low    { background: #f0f5fd; color: #2563a8; }
+    /* Risk prose */
+    .report-prose { font-size: 9pt; line-height: 1.65; color: #4a4a5e; margin-bottom: 10pt; }
+    .report-prose-block {
+      white-space: pre-wrap; font-family: 'Courier New', monospace;
+      font-size: 8pt; line-height: 1.75; color: #3a3a4e;
+      background: #faf9f6; border: 1px solid #e0ddd6;
+      padding: 12pt 14pt; border-radius: 5pt; margin-top: 4pt;
+    }
+    /* Risk table */
+    .risk-summary-table-wrap { overflow-x: auto; margin-top: 4pt; }
+    .risk-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+    .risk-table thead tr { background: #1a1a2e; }
+    .risk-table thead th {
+      color: #fff; padding: 6pt 8pt; text-align: left;
+      font-size: 7pt; text-transform: uppercase; letter-spacing: 0.5pt; white-space: nowrap;
+    }
+    .risk-table tbody tr { border-bottom: 1px solid #e8e6e2; }
+    .risk-table tbody tr:last-child { border-bottom: none; }
+    .risk-table tbody tr:hover { background: #f7f6f3; }
+    .risk-table td { padding: 7pt 8pt; vertical-align: top; color: #4a4a5e; line-height: 1.5; }
+    .tbl-num   { color: #9090a0; text-align: center; width: 20pt; font-size: 7.5pt; }
+    .tbl-title { color: #1a1a2e; font-weight: bold; min-width: 100pt; }
+    .tbl-ref   { white-space: nowrap; font-size: 7.5pt; }
+    .tbl-summary { font-style: italic; font-size: 7.5pt; min-width: 110pt; }
+    .risk-badge {
+      display: inline-block; padding: 2pt 7pt; border-radius: 8pt;
+      font-size: 7pt; font-weight: bold; text-transform: uppercase; white-space: nowrap;
+    }
+    .risk-badge.HIGH   { background: #fdf1f0; color: #c0392b; border: 1px solid rgba(192,57,43,0.25); }
+    .risk-badge.MEDIUM { background: #fdf8ed; color: #b7770d; border: 1px solid rgba(183,119,13,0.25); }
+    .risk-badge.LOW    { background: #f0f5fd; color: #2563a8; border: 1px solid rgba(37,99,168,0.25); }
+    /* Hide spinner */
+    .modal-generating, .spinner { display: none !important; }
+    @page { margin: 12mm; size: A4 landscape; }
+    @media print {
+      body { padding: 0; }
+      .report-cover, .risk-table thead tr, .section-num {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        color-adjust: exact;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-hint">
+    <strong>To save as PDF:</strong> Press <strong>Ctrl+P</strong> (or Cmd+P on Mac) → select <strong>Save as PDF</strong> → click Save.
+    Set orientation to <strong>Landscape</strong> and margins to <strong>Minimum</strong> for best results.
+  </div>
+  ${reportHTML}
+</body>
+</html>`;
+
+    // Create a Blob and trigger a download — works in sandboxed iframes
+    const blob = new Blob([fullDocument], { type: 'text/html;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `gdpr-report-${safeFileName}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // Update button label to guide the user
+    pdfBtn.textContent = '✓ Saved — open & print to PDF';
+    setTimeout(() => {
+      pdfBtn.textContent = origText;
+      pdfBtn.disabled = false;
+    }, 3000);
+
+  } catch(err) {
+    console.error('Download error:', err);
+    pdfBtn.textContent = origText;
+    pdfBtn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// GENERATE FINAL REPORT
+// ═══════════════════════════════════════════════════════
+
+async function generateReport() {
+  reportBtn.disabled = true;
+  reportBtn.textContent = 'Generating…';
+
+  modalBody.innerHTML = `
+    <div class="modal-generating">
+      <div class="spinner"></div>
+      <div>Compiling your Article 30 report…</div>
+    </div>`;
+  modalOverlay.classList.add('visible');
+
+  // ── Section 0: cover block ──────────────────────────────────────────
+  function buildCover() {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    const activityName = ropaState.fields.activityName.value || 'Processing Activity (unnamed)';
+    const totalFlags = ropaState.riskFlags.length;
+    const highCount = ropaState.riskFlags.filter(f => f.severity === 'HIGH').length;
+    return `
+      <div class="report-cover">
+        <div class="report-cover-label">GDPR Compliance Report</div>
+        <div class="report-cover-title">${escHtml(activityName)}</div>
+        <div class="report-cover-meta">
+          <span>Generated ${escHtml(dateStr)}</span>
+          <span class="cover-dot">·</span>
+          <span>Article 30 GDPR</span>
+          <span class="cover-dot">·</span>
+          <span>${totalFlags} risk${totalFlags !== 1 ? 's' : ''} identified${highCount ? ` (${highCount} HIGH)` : ''}</span>
+        </div>
+      </div>`;
+  }
+
+  // ── Section 1: risk summary table ───────────────────────────────────
+  function buildRiskTable() {
+    const flags = ropaState.riskFlags;
+    const order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+    const sorted = [...flags].sort((a, b) => (order[a.severity] ?? 3) - (order[b.severity] ?? 3));
+
+    const highCount   = flags.filter(f => f.severity === 'HIGH').length;
+    const mediumCount = flags.filter(f => f.severity === 'MEDIUM').length;
+    const lowCount    = flags.filter(f => f.severity === 'LOW').length;
+
+    const countParts = [
+      highCount   ? `<span class="count-badge high">${highCount} High</span>`   : '',
+      mediumCount ? `<span class="count-badge medium">${mediumCount} Medium</span>` : '',
+      lowCount    ? `<span class="count-badge low">${lowCount} Low</span>`       : ''
+    ].filter(Boolean).join('');
+
+    if (flags.length === 0) {
+      return `<div class="report-section">
+        <div class="report-section-header"><span class="section-num">I</span>Risk Summary</div>
+        <p class="report-prose">No risk flags were identified during this interview.</p>
+      </div>`;
+    }
+
+    const rows = sorted.map((f, i) => `
+      <tr>
+        <td class="tbl-num">${i + 1}</td>
+        <td class="tbl-title">${escHtml(f.title)}</td>
+        <td><span class="risk-badge ${f.severity}">${f.severity}</span></td>
+        <td class="tbl-ref">${escHtml(f.gdprRef)}</td>
+        <td class="tbl-summary">${escHtml(f.summary || f.description.split('.')[0] + '.')}</td>
+        <td>${escHtml(f.description)}</td>
+        <td>${escHtml(f.action)}</td>
+      </tr>`).join('');
+
+    return `
+      <div class="report-section">
+        <div class="report-section-header">
+          <span class="section-num">I</span>Risk Summary
+          <div class="count-badges">${countParts}</div>
+        </div>
+        <p class="report-prose" style="margin-bottom:14px">The following ${flags.length} compliance issue${flags.length !== 1 ? 's were' : ' was'} identified during the interview, ordered by severity. Issues marked HIGH require immediate DPO attention prior to sign-off of this record.</p>
+        <div class="risk-summary-table-wrap">
+          <table class="risk-table">
+            <thead>
+              <tr>
+                <th style="width:24px">#</th>
+                <th>Issue</th>
+                <th>Severity</th>
+                <th>GDPR Ref</th>
+                <th>Summary</th>
+                <th>Description</th>
+                <th>Recommended Action</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  // ── Prompt for sections II, III, IV ─────────────────────────────────
+  const fieldSummary = Object.entries(ropaState.fields).map(([, f]) => {
+    const val = Array.isArray(f.value) ? f.value.join(', ') : (f.value || 'Not captured');
+    return `${f.label}: ${val} [${f.status}]`;
+  }).join('\n');
+
+  const flagSummary = ropaState.riskFlags
+    .sort((a,b) => ({HIGH:0,MEDIUM:1,LOW:2}[a.severity]??3) - ({HIGH:0,MEDIUM:1,LOW:2}[b.severity]??3))
+    .map((f,i) => `${i+1}. [${f.severity}] ${f.title} (${f.gdprRef}): ${f.description}`)
+    .join('\n');
+
+  const reportPrompt = `You are a senior GDPR counsel drafting a formal compliance memorandum for a Data Protection Officer. Write with precision, rigour, and economy. Avoid filler phrases. Cite GDPR articles, recitals, and EDPB guidance specifically wherever relevant. Use the objective, impersonal register of legal advice.
+
+INTERVIEW DATA:
+${fieldSummary}
+
+RISK FLAGS IDENTIFIED (numbered — use these numbers in Section IV):
+${flagSummary || 'None'}
+
+Produce exactly three sections with the Roman numeral headings shown. Do not add a preamble or conclusion outside the three sections.
+
+─────────────────────────────────────────
+II. ARTICLE 30 RECORD OF PROCESSING ACTIVITIES
+─────────────────────────────────────────
+Present all ten Article 30(1) and 30(2) mandatory fields in a structured record. For each field, state the value captured precisely, or "Not captured — see DPO checklist" if absent. Note partial or ambiguous values explicitly. End with a "Record status" line noting how many fields are complete, partial, or absent.
+
+─────────────────────────────────────────
+III. LEGAL ANALYSIS OF IDENTIFIED RISKS
+─────────────────────────────────────────
+For each numbered risk flag above, write a separate numbered paragraph. Each paragraph MUST contain all four of the following:
+(a) The factual basis from the interview in one sentence.
+(b) The applicable GDPR provision(s) stated precisely — include article, paragraph, and subparagraph. Also cite EDPB Guidelines, WP29 opinions, or published DPA enforcement decisions where directly relevant.
+(c) A precise explanation of why the current practice is non-compliant or materially increases legal risk — do not generalise.
+(d) What the organisation must specifically demonstrate, implement, or document to achieve compliance.
+Do not repeat the risk table. Provide the depth of legal reasoning a DPO needs to brief management or instruct external counsel.
+
+─────────────────────────────────────────
+IV. RECOMMENDATIONS
+─────────────────────────────────────────
+This section is MANDATORY and must contain a specific, actionable recommendation for EVERY risk identified in Section III — no risk may be left without a corresponding recommendation. Number each recommendation to match its corresponding risk in Section III.
+
+For each recommendation state:
+- The precise action required (specific enough to be delegated and verified as complete)
+- The responsible party: DPO, Legal, IT, HR, Procurement, or Management as appropriate
+- Urgency: IMMEDIATE (within 30 days), SHORT-TERM (30–90 days), or MEDIUM-TERM (90–180 days)
+- The GDPR compliance standard the action must meet (e.g. "execute GDPR-compliant SCCs under Art. 46(2)(c) with a completed TIA")
+
+Conclude with a sign-off paragraph stating which specific items from the above list must be resolved before this Article 30 record can be formally countersigned by the DPO.
+
+Format: plain prose and numbered lists only. No bullet points. No markdown headers — use the plain text section headings above. No bold or italic markers.`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": anthropicApiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4000,
+        messages: [{ role: "user", content: reportPrompt }]
+      })
+    });
+
+    if (!response.ok) throw new Error(`Report API error ${response.status}`);
+    const data = await response.json();
+    const reportText = data.content[0].text;
+
+    // ── Parse the three sections out of the report text ──────────────
+    function parseReportSections(text) {
+      // Try multiple heading patterns to be robust against model formatting variation
+      const sec2Match = text.match(/(II[\.\s]+ARTICLE\s+30[\s\S]*?)(?=III[\.\s]|$)/i);
+      const sec3Match = text.match(/(III[\.\s]+LEGAL\s+ANALYSIS[\s\S]*?)(?=IV[\.\s]|$)/i);
+      const sec4Match = text.match(/(IV[\.\s]+RECOMMENDATIONS[\s\S]*?)$/i);
+      return {
+        s2: sec2Match ? sec2Match[1].trim() : '',
+        s3: sec3Match ? sec3Match[1].trim() : '',
+        s4: sec4Match ? sec4Match[1].trim() : ''
+      };
+    }
+
+    // Build a guaranteed fallback for Section IV from the risk flags if Claude omitted it
+    function buildRecommendationsFallback() {
+      const order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+      const sorted = [...ropaState.riskFlags].sort((a,b)=>(order[a.severity]??3)-(order[b.severity]??3));
+      if (!sorted.length) return 'IV. RECOMMENDATIONS\n\nNo risks were identified requiring remediation.';
+      const urgency = s => s === 'HIGH' ? 'IMMEDIATE (within 30 days)' : s === 'MEDIUM' ? 'SHORT-TERM (30–90 days)' : 'MEDIUM-TERM (90–180 days)';
+      const party  = f => {
+        const t = (f.title + ' ' + f.description).toLowerCase();
+        if (t.includes('transfer') || t.includes('scc') || t.includes('vendor'))  return 'Legal / Procurement';
+        if (t.includes('security') || t.includes('encrypt') || t.includes('access')) return 'IT / DPO';
+        if (t.includes('retention') || t.includes('delete')) return 'HR / DPO';
+        if (t.includes('consent') || t.includes('lawful')) return 'DPO / Legal';
+        if (t.includes('child') || t.includes('minor')) return 'HR / Legal / DPO';
+        if (t.includes('automat') || t.includes('profil') || t.includes('scoring')) return 'HR / Legal / DPO';
+        return 'DPO';
+      };
+      const lines = sorted.map((f, i) =>
+        `${i+1}. [${urgency(f.severity)}] ${f.action}\n   Responsible: ${party(f)}\n   Compliance standard: Resolve in accordance with ${f.gdprRef}.`
+      ).join('\n\n');
+      const highCount = sorted.filter(f=>f.severity==='HIGH').length;
+      const signoff = highCount
+        ? `This Article 30 record may not be formally signed off until all ${highCount} IMMEDIATE item${highCount!==1?'s':''} above ${highCount!==1?'are':'is'} resolved and evidenced in writing to the DPO.`
+        : 'This Article 30 record may be provisionally signed off subject to timely completion of the SHORT-TERM and MEDIUM-TERM items above.';
+      return `IV. RECOMMENDATIONS\n\n${lines}\n\n${signoff}`;
+    }
+
+    const { s2, s3, s4: rawS4 } = parseReportSections(reportText);
+
+    // Use fallback if Section IV is missing or suspiciously short (< 100 chars)
+    const s4 = (rawS4 && rawS4.length > 100) ? rawS4 : buildRecommendationsFallback();
+
+    function wrapSection(romanNum, title, content) {
+      return `
+        <div class="report-section">
+          <div class="report-section-header">
+            <span class="section-num">${romanNum}</span>${title}
+          </div>
+          <div class="report-prose-block">${escHtml(content)}</div>
+        </div>`;
+    }
+
+    modalBody.innerHTML =
+      buildCover() +
+      buildRiskTable() +
+      wrapSection('II', 'Article 30 Record of Processing Activities', s2 || '(Section not parsed — see full text below)\n\n' + reportText) +
+      wrapSection('III', 'Legal Analysis of Identified Risks', s3 || '') +
+      wrapSection('IV', 'Recommendations', s4);
+
+    // ── File naming ───────────────────────────────────────────────────
+    const activityName = ropaState.fields.activityName.value || 'ropa';
+    const safeFileName = activityName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
+    const dateStr = new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'});
+
+    // ── PDF download ──────────────────────────────────────────────────
+    document.getElementById('downloadPdfBtn').onclick = () => {
+      buildPDF(activityName, dateStr, safeFileName);
+    };
+
+  } catch(err) {
+    modalBody.innerHTML = `<div style="color:var(--red);padding:20px">Failed to generate report: ${escHtml(err.message)}</div>`;
+    console.error(err);
+  }
+
+  reportBtn.disabled = false;
+  reportBtn.textContent = 'Generate Final Report';
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════
+
+function escHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function setInputEnabled(enabled) {
+  chatInput.disabled = !enabled;
+  sendBtn.disabled = !enabled;
+}
+
+function resetState() {
+  ropaState.fields = {
+    activityName:          { label: "Processing Activity Name",          value: "",   status: "empty" },
+    purpose:               { label: "Purpose of Processing",             value: "",   status: "empty" },
+    dataSubjects:          { label: "Categories of Data Subjects",       value: "",   status: "empty" },
+    personalDataCategories:{ label: "Categories of Personal Data",       value: [],   status: "empty" },
+    specialCategoryData:   { label: "Special Category Data (Art. 9)",    value: null, status: "empty" },
+    recipients:            { label: "Recipients & Processors",           value: [],   status: "empty" },
+    thirdCountryTransfers: { label: "Third Country Transfers",           value: [],   status: "empty" },
+    retentionPeriod:       { label: "Retention Period",                  value: "",   status: "empty" },
+    securityMeasures:      { label: "Security Measures",                 value: "",   status: "empty" },
+    lawfulBasis:           { label: "Lawful Basis (Art. 6)",             value: "",   status: "empty" }
+  };
+  ropaState.riskFlags = [];
+  ropaState.conversationHistory = [];
+  ropaState.interviewComplete = false;
+
+  // Reset topic picker state
+  topicPickerLaunched = false;
+  topicState.phase = 'none';
+  topicState.remainingTopics = [];
+  topicState.currentTopic = null;
+  topicState.clarifyingCount = 0;
+  topicState.discussedTopics = new Set();
+
+  // Reset interim prompt state
+  interimPromptShown = false;
+  hideInterimPrompt();
+}
+
+// ═══════════════════════════════════════════════════════
+// API KEY BAR
+// ═══════════════════════════════════════════════════════
+
+const apiKeyBar       = document.getElementById('apiKeyBar');
+const apiKeyInput     = document.getElementById('apiKeyInput');
+const apiKeyConfirm   = document.getElementById('apiKeyConfirm');
+const apiKeySetIndicator = document.getElementById('apiKeySetIndicator');
+const apiKeyChange    = document.getElementById('apiKeyChange');
+
+function confirmApiKey() {
+  const val = apiKeyInput.value.trim();
+  if (!val.startsWith('sk-ant-')) {
+    apiKeyInput.style.borderColor = 'rgba(192,57,43,0.7)';
+    apiKeyInput.placeholder = 'Key must start with sk-ant-…';
+    return;
+  }
+  anthropicApiKey = val;
+  apiKeyInput.style.borderColor = '';
+  apiKeyInput.value = '';
+  apiKeyConfirm.style.display = 'none';
+  apiKeyInput.style.display = 'none';
+  apiKeySetIndicator.classList.add('visible');
+
+  // Unlock the demo button now that we have a key
+  if (document.getElementById('selfTestBtn')) {
+    document.getElementById('selfTestBtn').disabled = false;
+  }
+
+  // Start the interview now that we have a key
+  if (ropaState.conversationHistory.length === 0) {
+    init();
+  }
+}
+
+apiKeyConfirm.addEventListener('click', confirmApiKey);
+apiKeyInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmApiKey();
+});
+
+apiKeyChange.addEventListener('click', () => {
+  anthropicApiKey = '';
+  apiKeySetIndicator.classList.remove('visible');
+  apiKeyConfirm.style.display = '';
+  apiKeyInput.style.display = '';
+  apiKeyInput.focus();
+});
+
+// Show key bar and push app down
+document.body.classList.add('key-bar-visible');
+apiKeyInput.focus();
+
+// ═══════════════════════════════════════════════════════
+// SELF-TEST — MAYA CHEN DEMO SCRIPT
+// ═══════════════════════════════════════════════════════
+
+const selfTestBtn       = document.getElementById('selfTestBtn');
+const selfTestProgress  = document.getElementById('selfTestProgress');
+const testProgressFill  = document.getElementById('testProgressFill');
+const testProgressLabel = document.getElementById('testProgressLabel');
+const stopTestBtn       = document.getElementById('stopTestBtn');
+
+// The full Maya Chen test script — each entry is one message to send
+// Maya's full knowledge profile — used by the AI to generate contextually
+// appropriate responses to whatever the interviewer asks
+const MAYA_SYSTEM_PROMPT = `You are Maya Chen, Head of People Operations at Flowstack, a 200-person B2B SaaS company headquartered in Amsterdam. You are being interviewed by an AI compliance tool about how your team handles personal data.
+
+YOUR CHARACTER:
+You are friendly, cooperative, and intelligent, but you have zero legal training. You answer questions honestly and in good faith. You don't volunteer information unprompted — you answer what's asked. You occasionally mention real tools without realising their legal significance. You sometimes correct yourself mid-answer. You get mildly anxious when legal implications are pointed out, but stay cooperative.
+
+YOUR KNOWLEDGE — answer questions drawing on these facts, but only reveal details when directly asked:
+
+TEAM & SCOPE:
+- You run the full employee lifecycle: hiring, onboarding, performance reviews, payroll coordination, offboarding
+- Flowstack has about 200 employees
+- Your HR team is about 6-7 people plus an HRIS administrator
+
+SYSTEMS & VENDORS:
+- Workday: main HR system (US-based). "Some kind of agreement" exists but you don't know the details
+- Greenhouse: applicant tracking system (US-based, New York)
+- Effy: 360-degree performance review tool — generates a score out of 10 per employee that feeds into bonus calculations. You think this is great and haven't considered legal implications
+- ADP: payroll, syncs with Workday overnight (US-based). Procurement handles the contract
+- Google Workspace: everything lives here, 2FA set up by IT
+- Workplace Options: Employee Assistance Programme / mental health support (US-based). You're not sure what data flows to them
+- Codility: technical screening for candidates — runs coding tests and gives a score. You recently set up a threshold where candidates below 40% are auto-rejected in Greenhouse without human review. Recruiters can override but rarely do. You think this saves time
+- GoodTime: interview scheduling, connects to Google Calendar. You have no idea where they're based
+- Radford (part of Korn Ferry): compensation benchmarking. You share salary data "anonymised" by department and seniority. Some departments have only 2-3 people
+
+DATA YOU HOLD:
+- Employee personal data: names, addresses, bank details, emergency contacts
+- Disability and reasonable adjustments data (stored in Workday alongside normal HR data, not segregated)
+- Sick leave records (dates and duration only, nothing clinical)
+- Private medical insurance via Bupa — you share basic employee details for enrolment
+- Ethnicity and gender identity for DEI reporting — optional fields in Workday onboarding form, with a note saying voluntary. No separate tick-box consent
+- Performance scores (Effy), interview notes and CVs (Greenhouse), coding test scores (Codility)
+- Summer interns aged 16-17 — same onboarding form as adults, same data collection, parent signature on internship agreement but not on data processing
+
+RETENTION:
+- Employees: keep everything during employment. After leaving: "try to clean things up but no hard rule, depends on the manager"
+- Candidates not hired: keep CVs "maybe a year, sometimes longer if they were strong"
+- No formal written retention policy
+
+SECURITY:
+- Google Workspace with 2FA for most systems
+- Workday has access controls — only HR can see sensitive data
+- No formal written access policy — "evolved organically"
+- You assume Workday encrypts things but couldn't confirm
+- Workday-ADP sync: you don't know how it works technically
+
+LAWFUL BASIS:
+- Main employment data: "because they're our employees, they signed a contract"
+- Diversity data: not sure — "we started collecting it because investors asked for DEI metrics"
+- Medical insurance: "part of the employment contract since it's a benefit"
+- Candidates: "they applied for a job, we process their application, that seems obviously fine"
+
+THINGS YOU DON'T KNOW:
+- Whether DPAs with vendors are GDPR-specific
+- Technical details of encryption or data transfers
+- Where GoodTime is based
+- What data exactly flows to Workplace Options
+- The legal basis for diversity monitoring
+- Whether any DPIA has ever been done
+- Whether there is a DPO (you think "maybe legal handles it?")
+
+RESPONSE STYLE:
+- Keep answers conversational and natural — 2-5 sentences maximum
+- Only answer what was directly asked
+- Don't use legal terminology
+- Occasionally say "I'm not sure" or "I'd have to check"
+- If asked about something sensitive (like the auto-rejection threshold or minors), answer honestly but without flagging it as a problem yourself
+- Never volunteer the curveballs (interns, newsletter) unless directly asked about those topics or unless the conversation has covered most other areas and it feels natural to add something
+- Do NOT repeat information already given in the conversation
+- Respond only with Maya's answer — no preamble, no "As Maya," just her words directly`;
+
+let demoRunning = false;
+let demoAborted = false;
+let demoChatHistory = []; // separate history just for Maya's side of the conversation
+
+// Generates Maya's response to the latest interviewer message
+async function generateMayaResponse(interviewerMessage, retries = 3) {
+  // Keep only the last 10 pairs of Maya's history to avoid oversized requests.
+  // The system prompt already contains her full character — old turns add little value.
+  const trimmedHistory = demoChatHistory.slice(-20).map(m => ({
+    role: m.role,
+    content: String(m.content).slice(0, 400) // cap each turn at 400 chars
+  }));
+
+  const messages = [
+    ...trimmedHistory,
+    { role: "user", content: interviewerMessage }
+  ];
+
+  let lastError;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    // Exponential backoff: 0s, 4s, 8s, 16s
+    if (attempt > 0) {
+      const backoff = attempt * 4000;
+      if (testProgressLabel) testProgressLabel.textContent = `Maya rate-limited — retrying in ${backoff/1000}s…`;
+      await new Promise(r => setTimeout(r, backoff));
+    }
+
+    let response;
+    try {
+      response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": anthropicApiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 300,
+          system: MAYA_SYSTEM_PROMPT,
+          messages: messages
+        })
+      });
+    } catch(networkErr) {
+      lastError = new Error("Network error reaching Maya API.");
+      continue;
+    }
+
+    // Rate limited or overloaded — retry
+    if (response.status === 429 || response.status === 529) {
+      lastError = new Error(`Maya API rate limited (${response.status})`);
+      continue;
+    }
+
+    if (!response.ok) {
+      let errMsg = `Maya API error ${response.status}`;
+      try {
+        const errBody = await response.json();
+        errMsg = errBody.error?.message || errMsg;
+      } catch(_) { /* body wasn't JSON */ }
+      throw new Error(errMsg); // non-retriable, throw immediately
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch(e) {
+      lastError = new Error("Maya API returned an unreadable response.");
+      continue; // retry
+    }
+
+    if (!data.content || !data.content[0] || !data.content[0].text) {
+      lastError = new Error("Maya API returned an unexpected response shape.");
+      continue; // retry
+    }
+
+    const mayaText = data.content[0].text.trim();
+
+    // Add this exchange to Maya's history — cap at 30 entries to prevent unbounded growth
+    demoChatHistory.push({ role: "user", content: interviewerMessage });
+    demoChatHistory.push({ role: "assistant", content: mayaText });
+    if (demoChatHistory.length > 30) demoChatHistory = demoChatHistory.slice(-30);
+
+    return mayaText; // success
+  }
+
+  throw lastError || new Error("Maya API call failed after multiple retries.");
+}
+
+async function runSelfTest() {
+  if (demoRunning) return;
+  demoRunning = true;
+  demoAborted = false;
+  demoChatHistory = []; // reset Maya's memory
+
+  selfTestBtn.disabled = true;
+  selfTestProgress.classList.add('visible');
+  testProgressFill.style.width = '0%';
+  testProgressLabel.textContent = 'Maya is thinking…';
+
+  // The demo runs as a live conversation loop:
+  // get last interviewer message → generate Maya response → send it → repeat
+  // We stop when interviewComplete is true or we hit a max turn limit
+  const MAX_TURNS = 20;
+  let turn = 0;
+
+  while (!demoAborted && turn < MAX_TURNS) {
+    turn++;
+    const pct = Math.min(Math.round((turn / MAX_TURNS) * 100), 95);
+    testProgressFill.style.width = pct + '%';
+    testProgressLabel.textContent = `Turn ${turn} — Maya responding…`;
+
+    // Get the last thing the interviewer said (plain text, no JSON)
+    const lastInterviewerMsg = getLastInterviewerMessage();
+    if (!lastInterviewerMsg) break;
+
+    let mayaAnswer;
+    try {
+      mayaAnswer = await generateMayaResponse(lastInterviewerMsg);
+    } catch(err) {
+      console.error("Maya generation error:", err);
+      appendMessage('ai', "— Demo paused: could not generate response. You can continue manually.");
+      break;
+    }
+
+    if (demoAborted) break;
+
+    // Type Maya's answer into the input box
+    chatInput.disabled = false;
+    chatInput.value = '';
+    await typeIntoInput(mayaAnswer);
+
+    if (demoAborted) break;
+
+    await delay(400);
+
+    if (demoAborted) break;
+
+    // Send it through the real RoPA Whisperer pipeline
+    await sendMessageText(mayaAnswer);
+
+    if (demoAborted) break;
+
+    // Stop if the interview is flagged complete
+    if (ropaState.interviewComplete) break;
+
+    // Pause so the user can read
+    await delay(3000);
+  }
+
+  demoRunning = false;
+  testProgressFill.style.width = '100%';
+  testProgressLabel.textContent = demoAborted ? 'Stopped' : 'Interview done — exploring topics…';
+
+  // Launch topic picker then drive the full topic phase automatically
+  if (!demoAborted) {
+    const greenCount = countGreenFields();
+    if (greenCount >= 6 || ropaState.interviewComplete) {
+      // Skip the interim prompt in demo mode — go straight to topic picker
+      interimPromptShown = true;
+      hideInterimPrompt();
+      if (!topicPickerLaunched) {
+        topicPickerLaunched = true;
+        await startTopicPickerFlow();
+      }
+      if (!demoAborted) {
+        await demoTopicLoop();
+      }
+    }
+  }
+
+  setTimeout(() => {
+    selfTestProgress.classList.remove('visible');
+    selfTestBtn.disabled = false;
+    selfTestBtn.innerHTML = '<span class="test-icon">↺</span> Re-run Demo';
+  }, 1500);
+}
+
+// ── Demo topic phase: auto-selects chips, answers clarifying questions,
+//    responds to wrap-ups, then generates the final report ──────────────
+async function demoTopicLoop() {
+  if (demoAborted) return;
+
+  // Pick at most 2 topics for the demo — prefer HIGH risk ones
+  const MAX_DEMO_TOPICS = 2;
+  let topicsExplored = 0;
+
+  while (!demoAborted && topicsExplored < MAX_DEMO_TOPICS) {
+
+    // Wait until we're in 'picking' phase (chips visible)
+    const gotPicking = await waitForTopicPhase('picking', 8000);
+    if (!gotPicking || demoAborted) break;
+
+    // Brief pause so the user can see the chips before the demo auto-picks one
+    await delay(2500);
+
+    // Find the first un-discussed HIGH risk topic, fall back to any remaining
+    const remaining = topicState.remainingTopics.filter(
+      k => !topicState.discussedTopics.has(k)
+    );
+    if (remaining.length === 0) break;
+
+    const preferred = remaining.find(k => {
+      const t = GDPR_TOPICS.find(t => t.key === k);
+      return t && t.riskLevel === 'high';
+    }) || remaining[0];
+
+    testProgressLabel.textContent = `Exploring topic: ${GDPR_TOPICS.find(t=>t.key===preferred)?.label}…`;
+
+    // Create a ghost chip element so selectTopic can mark it selected
+    const ghostChip = document.createElement('button');
+    ghostChip.className = 'topic-chip high-risk selected';
+
+    // Visually highlight the matching real chip if it exists
+    const realChip = [...topicChipsEl.querySelectorAll('.topic-chip')]
+      .find(c => c.textContent.trim() === GDPR_TOPICS.find(t=>t.key===preferred)?.label);
+    if (realChip) {
+      topicChipsEl.querySelectorAll('.topic-chip').forEach(c => c.classList.remove('selected'));
+      realChip.classList.add('selected');
+    }
+
+    await delay(800);
+
+    // Fire selectTopic — this injects the system instruction and asks Q1
+    await selectTopic(preferred, realChip || ghostChip);
+
+    if (demoAborted) break;
+    await delay(2500);
+
+    // ── Clarifying Q1 ──
+    testProgressLabel.textContent = `Maya answering Q1 on topic…`;
+    const q1 = getLastInterviewerMessage();
+    if (!q1) break;
+
+    let a1;
+    try { a1 = await generateMayaResponse(q1); }
+    catch(e) { console.error(e); break; }
+
+    if (demoAborted) break;
+    chatInput.disabled = false;
+    await typeIntoInput(a1);
+    await delay(400);
+    await sendMessageText(a1);
+    if (demoAborted) break;
+    await delay(2500);
+
+    // ── Clarifying Q2 ──
+    testProgressLabel.textContent = `Maya answering Q2 on topic…`;
+    const q2 = getLastInterviewerMessage();
+    if (!q2) break;
+
+    let a2;
+    try { a2 = await generateMayaResponse(q2); }
+    catch(e) { console.error(e); break; }
+
+    if (demoAborted) break;
+    chatInput.disabled = false;
+    await typeIntoInput(a2);
+    await delay(400);
+    // This triggers advanceTopicPhase → count=2 → wrap-up API call → chips re-render
+    await sendMessageText(a2);
+    if (demoAborted) break;
+
+    // Wait for the wrap-up question and chip re-render (600ms setTimeout inside advanceTopicPhase)
+    await delay(3500);
+
+    topicsExplored++;
+
+    // ── Wrap-up answer: "anything else?" ──
+    const wrapQ = getLastInterviewerMessage();
+    if (!wrapQ) break;
+
+    testProgressLabel.textContent = `Maya answering wrap-up…`;
+
+    let wrapA;
+    try { wrapA = await generateMayaResponse(wrapQ); }
+    catch(e) { console.error(e); break; }
+
+    if (demoAborted) break;
+    chatInput.disabled = false;
+    await typeIntoInput(wrapA);
+    await delay(400);
+    await sendMessageText(wrapA);
+    if (demoAborted) break;
+    await delay(2500);
+  }
+
+  if (!demoAborted) {
+    // Auto-generate the final report
+    testProgressLabel.textContent = 'Generating final report…';
+    await delay(1000);
+    await generateReport();
+  }
+}
+
+// Polls topicState.phase until it matches targetPhase or timeout expires
+function waitForTopicPhase(targetPhase, timeoutMs) {
+  return new Promise(resolve => {
+    const start = Date.now();
+    const check = () => {
+      if (topicState.phase === targetPhase) return resolve(true);
+      if (Date.now() - start > timeoutMs) return resolve(false);
+      setTimeout(check, 150);
+    };
+    check();
+  });
+}
+
+
+// Extracts the plain-text content of the last interviewer (AI) message
+// from the conversation history, stripping the JSON block
+function getLastInterviewerMessage() {
+  for (let i = ropaState.conversationHistory.length - 1; i >= 0; i--) {
+    const msg = ropaState.conversationHistory[i];
+    if (msg.role === 'assistant') {
+      return msg.content.split('|||JSON|||')[0].trim();
+    }
+  }
+  return null;
+}
+
+// Simulates typing into the input box character by character
+async function typeIntoInput(text) {
+  chatInput.value = '';
+  chatInput.style.height = 'auto';
+  for (let i = 0; i < text.length; i++) {
+    if (demoAborted) return;
+    chatInput.value += text[i];
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+    await delay(10 + Math.random() * 15);
+  }
+}
+
+// Sends a specific text string through the full real pipeline
+async function sendMessageText(text) {
+  chatInput.value = '';
+  chatInput.style.height = 'auto';
+  setInputEnabled(false);
+
+  appendMessage('user', text);
+  showTyping(true);
+
+  ropaState.conversationHistory.push({ role: "user", content: text });
+
+  try {
+    const raw = await callClaude(ropaState.conversationHistory);
+    const { chatText, jsonData } = parseResponse(raw);
+
+    ropaState.conversationHistory.push({ role: "assistant", content: raw });
+
+    showTyping(false);
+    appendMessage('ai', chatText);
+
+    const updatedKeys = applyJsonUpdate(jsonData);
+    renderRopaFields(updatedKeys);
+    renderRiskFlags();
+    updateReportButton();
+
+    if (topicState.phase === 'clarifying') {
+      await advanceTopicPhase();
+      return;
+    }
+
+  } catch(err) {
+    showTyping(false);
+    appendMessage('ai', "Sorry, I lost my train of thought — moving on.");
+    console.error("Demo API error:", err);
+    ropaState.conversationHistory.pop();
+  }
+
+  setInputEnabled(true);
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+selfTestBtn.addEventListener('click', runSelfTest);
+
+stopTestBtn.addEventListener('click', () => {
+  demoAborted = true;
+  demoRunning = false;
+  setInputEnabled(true);
+  showTyping(false);
+});
+
+
+
+chatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// Auto-resize textarea
+chatInput.addEventListener('input', () => {
+  chatInput.style.height = 'auto';
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+});
+
+riskToggle.addEventListener('click', () => {
+  riskFlagsList.classList.toggle('open');
+  riskChevron.classList.toggle('open');
+});
+
+reportBtn.addEventListener('click', generateReport);
+
+newInterviewBtn.addEventListener('click', () => {
+  if (!confirm('Start a new interview? This will clear all current data.')) return;
+  chatMessages.innerHTML = '';
+  resetState();
+  renderRopaFields();
+  renderRiskFlags();
+  riskFlagsList.classList.remove('open');
+  riskChevron.classList.remove('open');
+  reportBtn.disabled = true;
+  reportBtn.classList.remove('ready');
+  topicPicker.classList.remove('visible');
+  topicChipsEl.innerHTML = '';
+  // Reset demo state
+  demoRunning = false;
+  demoAborted = true;
+  selfTestProgress.classList.remove('visible');
+  selfTestBtn.innerHTML = '<span class="test-icon">▶</span> Run Demo';
+  selfTestBtn.disabled = !anthropicApiKey;
+  init();
+});
+
+modalClose.addEventListener('click', () => modalOverlay.classList.remove('visible'));
+modalCloseFoot.addEventListener('click', () => modalOverlay.classList.remove('visible'));
+modalOverlay.addEventListener('click', e => {
+  if (e.target === modalOverlay) modalOverlay.classList.remove('visible');
+});
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+
+function init() {
+  // Add opening message to chat (no API call needed — it's fixed)
+  appendMessage('ai', OPENING_MESSAGE);
+
+  // Seed conversation history so Claude has context
+  ropaState.conversationHistory.push({
+    role: "assistant",
+    content: OPENING_MESSAGE + "\n\n|||JSON|||\n{\"fieldsUpdated\":{},\"newRiskFlags\":[],\"interviewComplete\":false}\n|||JSON|||END"
+  });
+
+  setInputEnabled(true);
+  chatInput.focus();
+}
+
+// Boot — render the empty RoPA panel immediately,
+// but wait for the API key to be confirmed before starting the interview
+renderRopaFields();
+renderRiskFlags();
+// init() is called by confirmApiKey() once the key is set
+</script>
+</body>
+</html>
